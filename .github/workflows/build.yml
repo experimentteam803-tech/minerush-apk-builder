@@ -32,20 +32,9 @@ jobs:
         echo "$GITHUB_WORKSPACE/gradle-8.5/bin" >> $GITHUB_PATH
 
     - name: Build Android APK
-      run: |
-        gradle assembleDebug --no-daemon --warning-mode all 2>&1 | tee build_output.log
-      continue-on-error: false
-
-    - name: Capture Error If Failed
-      if: failure()
-      run: |
-        echo "### ⚠️ Build Failed Details:" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        grep -A 10 -B 2 "What went wrong" build_output.log || tail -n 25 build_output.log >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
+      run: gradle assembleDebug --no-daemon
 
     - name: Upload Compiled APK
-      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: MineRush-Official-AdMob-APK
