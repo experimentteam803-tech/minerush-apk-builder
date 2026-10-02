@@ -36,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Google AdMob Test IDs
     private static final String ID_REWARDED = "ca-app-pub-3940256099942544/5224354917";
-    private static final String ID_REWARDED_INTERSTITIAL = "ca-app-pub-3940256099942544/5354046379";
+    private static final String ID_REWARDED_INTERSTITIAL = "ca-app-pub-3827595599617180/7024643071";
     private static final String ID_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712";
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
