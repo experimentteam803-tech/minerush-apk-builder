@@ -1,7 +1,11 @@
 package com.payzo.minerush;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
@@ -30,14 +34,9 @@ public class MainActivity extends AppCompatActivity {
     private RewardedInterstitialAd rewardedInterstitialAd;
     private InterstitialAd interstitialAd;
 
-    // ==============================================================
-    // 🎯 GOOGLE ADMOB TEST UNIT IDs (Baad me yahan apni Real IDs lagayein)
-    // ==============================================================
-    // 1. Rewarded Ad (Mining)
+    // Google AdMob Test IDs
     private static final String ID_REWARDED = "ca-app-pub-3940256099942544/5224354917";
-    // 2. Rewarded Interstitial Ad (Tasks & Coin Swap)
     private static final String ID_REWARDED_INTERSTITIAL = "ca-app-pub-3940256099942544/5354046379";
-    // 3. Regular Interstitial Ad (Full-screen natural transitions)
     private static final String ID_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712";
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
@@ -49,12 +48,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize AdMob Engine
         MobileAds.initialize(this, initializationStatus -> {});
         loadAllAds();
 
-        // Setup WebView
         webView = findViewById(R.id.webview);
+        
+        // 🛡️ Fix 1: White screen freeze khatam karne ke liye dark background
+        webView.setBackgroundColor(Color.parseColor("#040711"));
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -62,7 +63,6 @@ public class MainActivity extends AppCompatActivity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
 
-        // Native Bridge Interface
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
         webView.setWebViewClient(new WebViewClient() {
@@ -74,7 +74,6 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                // Agar internet band ho toh professional offline page load karo
                 if (request.isForMainFrame()) {
                     isOffline = true;
                     showProfessionalOfflinePage();
@@ -85,7 +84,6 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // ================= ADS LOADING ENGINE =================
     private void loadAllAds() {
         loadRewardedAd();
         loadRewardedInterstitialAd();
@@ -116,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // ================= HIGH-TECH OFFLINE SCREEN =================
+    // 📡 Ultra-Sleek Offline Page (No-White-Screen Freeze)
     private void showProfessionalOfflinePage() {
         String offlineHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'>" +
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=no'>" +
@@ -128,24 +126,55 @@ public class MainActivity extends AppCompatActivity {
                 "h2 { font-size:22px; font-weight:800; margin-bottom:8px; color:#FFF; }" +
                 "h2 span { color:#00F2FE; }" +
                 "p { font-size:13px; color:#94A3B8; max-width:280px; line-height:1.5; margin-bottom:28px; }" +
-                ".btn-retry { background:linear-gradient(135deg, #00F2FE, #3B82F6); color:#040711; font-size:15px; font-weight:800; border:none; padding:15px 32px; border-radius:16px; cursor:pointer; box-shadow:0 4px 22px rgba(0, 242, 254, 0.35); text-transform:uppercase; letter-spacing:0.5px; }" +
+                ".btn-retry { background:linear-gradient(135deg, #00F2FE, #3B82F6); color:#040711; font-size:15px; font-weight:800; border:none; padding:15px 32px; border-radius:16px; cursor:pointer; box-shadow:0 4px 22px rgba(0, 242, 254, 0.35); text-transform:uppercase; letter-spacing:0.5px; transition:transform 0.15s; }" +
                 ".btn-retry:active { transform:scale(0.96); }" +
                 "</style></head><body>" +
                 "<div class='radar-ring'>📡</div>" +
                 "<h2>Connection <span>Lost</span></h2>" +
                 "<p>Please check your mobile data or Wi-Fi network to resume cloud mining.</p>" +
-                "<button class='btn-retry' onclick='window.location.reload();'>⚡ Retry Connection</button>" +
+                "<button class='btn-retry' id='retryBtn' onclick='handleRetry()'>⚡ Retry Connection</button>" +
                 "<script>" +
-                "window.addEventListener('online', function() { window.location.href = '" + APP_URL + "'; });" +
+                "function handleRetry() {" +
+                "  var btn = document.getElementById('retryBtn');" +
+                "  btn.innerText = 'Connecting...';" +
+                "  btn.style.opacity = '0.6';" +
+                "  if (window.AndroidBridge && window.AndroidBridge.retryConnection) {" +
+                "    window.AndroidBridge.retryConnection();" +
+                "  } else {" +
+                "    window.location.href = '" + APP_URL + "';" +
+                "  }" +
+                "  setTimeout(function() { btn.innerText = '⚡ Retry Connection'; btn.style.opacity = '1'; }, 3000);" +
+                "}" +
+                "window.addEventListener('online', function() { handleRetry(); });" +
                 "</script></body></html>";
 
-        webView.loadDataWithBaseURL(null, offlineHtml, "text/html", "UTF-8", null);
+        // 🛡️ Fix 2: Base URL me APP_URL use kiya hai taaki blank document na bane
+        webView.loadDataWithBaseURL(APP_URL, offlineHtml, "text/html", "UTF-8", null);
     }
 
-    // ================= JAVASCRIPT BRIDGE =================
+    private boolean isNetworkAvailable() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm != null) {
+            NetworkInfo netInfo = cm.getActiveNetworkInfo();
+            return netInfo != null && netInfo.isConnected();
+        }
+        return false;
+    }
+
     public class WebAppInterface {
 
-        // 1. REWARDED AD (Mining ke liye)
+        // 🛡️ Fix 3: Smart Native Retry Connection
+        @JavascriptInterface
+        public void retryConnection() {
+            runOnUiThread(() -> {
+                if (isNetworkAvailable()) {
+                    webView.loadUrl(APP_URL);
+                } else {
+                    Toast.makeText(MainActivity.this, "Still offline! Please turn on Mobile Data or Wi-Fi.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
         @JavascriptInterface
         public void showRewardedAd() {
             runOnUiThread(() -> {
@@ -161,7 +190,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 2. REWARDED INTERSTITIAL AD (Tasks aur Coin Swap ke liye)
         @JavascriptInterface
         public void showRewardedInterstitialAd(String targetType) {
             runOnUiThread(() -> {
@@ -177,7 +205,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 3. REGULAR INTERSTITIAL AD (Normal Full-Screen)
         @JavascriptInterface
         public void showInterstitialAd() {
             runOnUiThread(() -> {
