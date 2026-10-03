@@ -31,8 +31,8 @@ public class MainActivity extends AppCompatActivity {
     // 🎯 UNITY ADS REAL CONFIGURATION
     // =======================================================
     private static final String UNITY_GAME_ID = "800387446";
-    private static final String REWARDED_PLACEMENT_ID = "BP_Rewarded_Android";
-    private static final String INTERSTITIAL_PLACEMENT_ID = "BP_Interstitial_Android";
+    private static final String REWARDED_PLACEMENT_ID = "Rewarded_Android";
+    private static final String INTERSTITIAL_PLACEMENT_ID = "Interstitial_Android";
     private static final boolean TEST_MODE = true; // Testing ke liye true
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
