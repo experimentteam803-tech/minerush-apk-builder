@@ -33,8 +33,7 @@ jobs:
 
     - name: Download Permanent Android Keystore
       run: |
-        curl -sL https://raw.githubusercontent.com/facebook/react-native/main/packages/react-native/template/android/app/debug.keystore -o app/debug.keystore
-
+        curl -sL https://raw.githubusercontent.com/...
     - name: Build Android APK
       run: gradle assembleDebug --no-daemon
 
