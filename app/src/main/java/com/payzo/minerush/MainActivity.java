@@ -16,7 +16,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
-// 🔥 Unity Ads Official Imports
+// Unity Ads Official Imports
 import com.unity3d.ads.IUnityAdsInitializationListener;
 import com.unity3d.ads.IUnityAdsLoadListener;
 import com.unity3d.ads.IUnityAdsShowListener;
@@ -28,12 +28,12 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
 
     // =======================================================
-    // 🎯 UNITY ADS REAL CONFIGURATION (Aapke Dashboard se Set)
+    // 🎯 UNITY ADS REAL CONFIGURATION
     // =======================================================
     private static final String UNITY_GAME_ID = "800387446";
     private static final String REWARDED_PLACEMENT_ID = "BP_Rewarded_Android";
     private static final String INTERSTITIAL_PLACEMENT_ID = "BP_Interstitial_Android";
-    private static final boolean TEST_MODE = false; // Real High-eCPM ads ke liye false
+    private static final boolean TEST_MODE = false;
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize Unity Ads Engine
+        // 1. Initialize Unity Ads
         initUnityAds();
 
         // 2. Setup WebView
@@ -80,32 +80,35 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    private void loadUnityAds() {
-        UnityAds.load(REWARDED_PLACEMENT_ID, new IUnityAdsLoadListener() {
+    private void initUnityAds() {
+        UnityAds.initialize(this, UNITY_GAME_ID, TEST_MODE, new IUnityAdsInitializationListener() {
             @Override
-            public void onUnityAdsAdLoaded(String placementId) {}
+            public void onInitializationComplete() {
+                loadUnityAds();
+            }
 
             @Override
-            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
-        });
-
-        UnityAds.load(INTERSTITIAL_PLACEMENT_ID, new IUnityAdsLoadListener() {
-            @Override
-            public void onUnityAdsAdLoaded(String placementId) {}
-
-            @Override
-            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
+            public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
+                // Retry if needed
+            }
         });
     }
 
     private void loadUnityAds() {
         UnityAds.load(REWARDED_PLACEMENT_ID, new IUnityAdsLoadListener() {
-            @Override public void onAdLoaded(String placementId) {}
-            @Override public void onAdFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
+            @Override
+            public void onUnityAdsAdLoaded(String placementId) {}
+
+            @Override
+            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
         });
+
         UnityAds.load(INTERSTITIAL_PLACEMENT_ID, new IUnityAdsLoadListener() {
-            @Override public void onAdLoaded(String placementId) {}
-            @Override public void onAdFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
+            @Override
+            public void onUnityAdsAdLoaded(String placementId) {}
+
+            @Override
+            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
         });
     }
 
@@ -115,14 +118,12 @@ public class MainActivity extends AppCompatActivity {
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=no'>" +
                 "<style>" +
                 "* { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, sans-serif; }" +
-                "body { background:#040711; color:#FFF; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; overflow:hidden; }" +
-                ".radar-ring { width:96px; height:96px; border-radius:50%; background:rgba(0, 242, 254, 0.08); border:2px solid rgba(0, 242, 254, 0.3); display:flex; align-items:center; justify-content:center; font-size:42px; margin-bottom:20px; box-shadow:0 0 35px rgba(0, 242, 254, 0.2); animation:pulse 2s infinite; }" +
-                "@keyframes pulse { 0% { transform:scale(0.96); box-shadow:0 0 15px rgba(0,242,254,0.2); } 50% { transform:scale(1.04); box-shadow:0 0 35px rgba(0,242,254,0.4); } 100% { transform:scale(0.96); box-shadow:0 0 15px rgba(0,242,254,0.2); } }" +
-                "h2 { font-size:22px; font-weight:800; margin-bottom:8px; color:#FFF; }" +
+                "body { background:#040711; color:#FFF; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; }" +
+                ".radar-ring { width:96px; height:96px; border-radius:50%; background:rgba(0, 242, 254, 0.08); border:2px solid rgba(0, 242, 254, 0.3); display:flex; align-items:center; justify-content:center; font-size:42px; margin-bottom:20px; box-shadow:0 0 35px rgba(0, 242, 254, 0.2); }" +
+                "h2 { font-size:22px; font-weight:800; margin-bottom:8px; }" +
                 "h2 span { color:#00F2FE; }" +
                 "p { font-size:13px; color:#94A3B8; max-width:280px; line-height:1.5; margin-bottom:28px; }" +
-                ".btn-retry { background:linear-gradient(135deg, #00F2FE, #3B82F6); color:#040711; font-size:15px; font-weight:800; border:none; padding:15px 32px; border-radius:16px; cursor:pointer; box-shadow:0 4px 22px rgba(0, 242, 254, 0.35); text-transform:uppercase; letter-spacing:0.5px; }" +
-                ".btn-retry:active { transform:scale(0.96); }" +
+                ".btn-retry { background:linear-gradient(135deg, #00F2FE, #3B82F6); color:#040711; font-size:15px; font-weight:800; border:none; padding:15px 32px; border-radius:16px; cursor:pointer; }" +
                 "</style></head><body>" +
                 "<div class='radar-ring'>📡</div>" +
                 "<h2>Connection <span>Lost</span></h2>" +
@@ -130,15 +131,9 @@ public class MainActivity extends AppCompatActivity {
                 "<button class='btn-retry' id='retryBtn' onclick='handleRetry()'>⚡ Retry Connection</button>" +
                 "<script>" +
                 "function handleRetry() {" +
-                "  var btn = document.getElementById('retryBtn');" +
-                "  btn.innerText = 'Connecting...';" +
-                "  btn.style.opacity = '0.6';" +
                 "  if (window.AndroidBridge && window.AndroidBridge.retryConnection) {" +
                 "    window.AndroidBridge.retryConnection();" +
-                "  } else {" +
-                "    window.location.href = '" + APP_URL + "';" +
-                "  }" +
-                "  setTimeout(function() { btn.innerText = '⚡ Retry Connection'; btn.style.opacity = '1'; }, 3000);" +
+                "  } else { window.location.href = '" + APP_URL + "'; }" +
                 "}" +
                 "window.addEventListener('online', function() { handleRetry(); });" +
                 "</script></body></html>";
@@ -164,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
                 if (isNetworkAvailable()) {
                     webView.loadUrl(APP_URL);
                 } else {
-                    Toast.makeText(MainActivity.this, "Still offline! Please turn on Mobile Data or Wi-Fi.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Still offline! Turn on Mobile Data or Wi-Fi.", Toast.LENGTH_SHORT).show();
                 }
             });
         }
