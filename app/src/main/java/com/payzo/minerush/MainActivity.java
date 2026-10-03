@@ -58,6 +58,8 @@ public class MainActivity extends AppCompatActivity {
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
+        // App open hote hi sound bajne ki permission
+        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setUseWideViewPort(true);
