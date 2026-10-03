@@ -27,12 +27,13 @@ android {
 }
 
 dependencies {
-    // Unity Ads Official SDK
-    implementation 'com.unity3d.ads:unity-ads:4.12.2'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // Google AdMob Official SDK
+    // 1. Google AdMob Official SDK
     implementation 'com.google.android.gms:play-services-ads:23.0.0'
+
+    // 2. AppLovin MAX SDK
+    implementation 'com.applovin:applovin-sdk:13.0.1'
 }
