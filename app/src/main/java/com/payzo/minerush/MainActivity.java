@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String UNITY_GAME_ID = "800387446";
     private static final String REWARDED_PLACEMENT_ID = "BP_Rewarded_Android";
     private static final String INTERSTITIAL_PLACEMENT_ID = "BP_Interstitial_Android";
-    private static final boolean TEST_MODE = true;
+    private static final boolean TEST_MODE = true; // Testing ke liye true
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
@@ -89,7 +89,6 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
-                // Retry if needed
             }
         });
     }
@@ -186,41 +185,40 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void showUnityAdInternal(String targetType, String placementId) {
-        runOnUiThread(() -> {
-            Toast.makeText(MainActivity.this, "Fetching video ad, please wait...", Toast.LENGTH_SHORT).show();
+            runOnUiThread(() -> {
+                Toast.makeText(MainActivity.this, "Fetching video ad, please wait...", Toast.LENGTH_SHORT).show();
 
-            // 1. Pehle Ad ko Live Load karo
-            UnityAds.load(placementId, new IUnityAdsLoadListener() {
-                @Override
-                public void onUnityAdsAdLoaded(String pId) {
-                    // 2. Ad load hote hi TURANT screen par dikhao!
-                    UnityAds.show(MainActivity.this, pId, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
-                        @Override
-                        public void onUnityAdsShowFailure(String id, UnityAds.UnityAdsShowError error, String message) {
-                            Toast.makeText(MainActivity.this, "Unity Show Error: " + message, Toast.LENGTH_LONG).show();
-                        }
-
-                        @Override
-                        public void onUnityAdsShowStart(String id) {}
-
-                        @Override
-                        public void onUnityAdsShowClick(String id) {}
-
-                        @Override
-                        public void onUnityAdsShowComplete(String id, UnityAds.UnityAdsShowCompletionState state) {
-                            if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
-                                webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
+                UnityAds.load(placementId, new IUnityAdsLoadListener() {
+                    @Override
+                    public void onUnityAdsAdLoaded(String pId) {
+                        UnityAds.show(MainActivity.this, pId, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
+                            @Override
+                            public void onUnityAdsShowFailure(String id, UnityAds.UnityAdsShowError error, String message) {
+                                Toast.makeText(MainActivity.this, "Unity Show Error: " + message, Toast.LENGTH_LONG).show();
                             }
-                        }
-                    });
-                }
 
-                @Override
-                public void onUnityAdsFailedToLoad(String pId, UnityAds.UnityAdsLoadError error, String message) {
-                    Toast.makeText(MainActivity.this, "Unity Load Error: " + message, Toast.LENGTH_LONG).show();
-                }
+                            @Override
+                            public void onUnityAdsShowStart(String id) {}
+
+                            @Override
+                            public void onUnityAdsShowClick(String id) {}
+
+                            @Override
+                            public void onUnityAdsShowComplete(String id, UnityAds.UnityAdsShowCompletionState state) {
+                                if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                                    webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
+                                }
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onUnityAdsFailedToLoad(String pId, UnityAds.UnityAdsLoadError error, String message) {
+                        Toast.makeText(MainActivity.this, "Unity Load Error: " + message, Toast.LENGTH_LONG).show();
+                    }
+                });
             });
-        });
+        }
     }
 
     @Override
