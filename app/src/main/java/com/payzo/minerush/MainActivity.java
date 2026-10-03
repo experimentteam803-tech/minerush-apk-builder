@@ -80,17 +80,21 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    private void initUnityAds() {
-        UnityAds.initialize(this, UNITY_GAME_ID, TEST_MODE, new IUnityAdsInitializationListener() {
+    private void loadUnityAds() {
+        UnityAds.load(REWARDED_PLACEMENT_ID, new IUnityAdsLoadListener() {
             @Override
-            public void onInitializationComplete() {
-                loadUnityAds();
-            }
+            public void onUnityAdsAdLoaded(String placementId) {}
 
             @Override
-            public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
-                // Retry if needed
-            }
+            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
+        });
+
+        UnityAds.load(INTERSTITIAL_PLACEMENT_ID, new IUnityAdsLoadListener() {
+            @Override
+            public void onUnityAdsAdLoaded(String placementId) {}
+
+            @Override
+            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
         });
     }
 
