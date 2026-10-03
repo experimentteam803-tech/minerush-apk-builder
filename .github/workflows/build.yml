@@ -31,6 +31,10 @@ jobs:
         unzip -q gradle-8.5-bin.zip
         echo "$GITHUB_WORKSPACE/gradle-8.5/bin" >> $GITHUB_PATH
 
+    - name: Download Permanent Android Keystore
+      run: |
+        curl -sL https://raw.githubusercontent.com/facebook/react-native/main/packages/react-native/template/android/app/debug.keystore -o app/debug.keystore
+
     - name: Build Android APK
       run: gradle assembleDebug --no-daemon
 
