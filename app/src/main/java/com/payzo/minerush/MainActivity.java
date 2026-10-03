@@ -14,30 +14,26 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.LoadAdError;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.interstitial.InterstitialAd;
-import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
-import com.google.android.gms.ads.rewarded.RewardedAd;
-import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
-import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd;
-import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback;
+// 🔥 Unity Ads Official Imports
+import com.unity3d.ads.IUnityAdsInitializationListener;
+import com.unity3d.ads.IUnityAdsLoadListener;
+import com.unity3d.ads.IUnityAdsShowListener;
+import com.unity3d.ads.UnityAds;
+import com.unity3d.ads.UnityAdsShowOptions;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
-    private RewardedAd rewardedAd;
-    private RewardedInterstitialAd rewardedInterstitialAd;
-    private InterstitialAd interstitialAd;
 
-    // Google AdMob Test IDs
-    private static final String ID_REWARDED = "ca-app-pub-3940256099942544/5224354917";
-    private static final String ID_REWARDED_INTERSTITIAL = "ca-app-pub-3827595599617180/7024643071";
-    private static final String ID_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712";
+    // =======================================================
+    // 🎯 UNITY ADS REAL CONFIGURATION (Aapke Dashboard se Set)
+    // =======================================================
+    private static final String UNITY_GAME_ID = "800387446";
+    private static final String REWARDED_PLACEMENT_ID = "BP_Rewarded_Android";
+    private static final String INTERSTITIAL_PLACEMENT_ID = "BP_Interstitial_Android";
+    private static final boolean TEST_MODE = false; // Real High-eCPM ads ke liye false
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
@@ -48,22 +44,20 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        MobileAds.initialize(this, initializationStatus -> {});
-        loadAllAds();
+        // 1. Initialize Unity Ads Engine
+        initUnityAds();
 
+        // 2. Setup WebView
         webView = findViewById(R.id.webview);
-        
-        // 🛡️ Fix 1: White screen freeze khatam karne ke liye dark background
         webView.setBackgroundColor(Color.parseColor("#040711"));
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
-        // App open hote hi sound bajne ki permission
-        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
@@ -86,49 +80,44 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    private void loadAllAds() {
-        loadRewardedAd();
-        loadRewardedInterstitialAd();
-        loadInterstitialAd();
-    }
+    private void initUnityAds() {
+        UnityAds.initialize(this, UNITY_GAME_ID, TEST_MODE, new IUnityAdsInitializationListener() {
+            @Override
+            public void onInitializationComplete() {
+                loadUnityAds();
+            }
 
-    private void loadRewardedAd() {
-        AdRequest req = new AdRequest.Builder().build();
-        RewardedAd.load(this, ID_REWARDED, req, new RewardedAdLoadCallback() {
-            @Override public void onAdLoaded(@NonNull RewardedAd ad) { rewardedAd = ad; }
-            @Override public void onAdFailedToLoad(@NonNull LoadAdError err) { rewardedAd = null; }
+            @Override
+            public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
+                // Retry if needed
+            }
         });
     }
 
-    private void loadRewardedInterstitialAd() {
-        AdRequest req = new AdRequest.Builder().build();
-        RewardedInterstitialAd.load(this, ID_REWARDED_INTERSTITIAL, req, new RewardedInterstitialAdLoadCallback() {
-            @Override public void onAdLoaded(@NonNull RewardedInterstitialAd ad) { rewardedInterstitialAd = ad; }
-            @Override public void onAdFailedToLoad(@NonNull LoadAdError err) { rewardedInterstitialAd = null; }
+    private void loadUnityAds() {
+        UnityAds.load(REWARDED_PLACEMENT_ID, new IUnityAdsLoadListener() {
+            @Override public void onAdLoaded(String placementId) {}
+            @Override public void onAdFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
+        });
+        UnityAds.load(INTERSTITIAL_PLACEMENT_ID, new IUnityAdsLoadListener() {
+            @Override public void onAdLoaded(String placementId) {}
+            @Override public void onAdFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {}
         });
     }
 
-    private void loadInterstitialAd() {
-        AdRequest req = new AdRequest.Builder().build();
-        InterstitialAd.load(this, ID_INTERSTITIAL, req, new InterstitialAdLoadCallback() {
-            @Override public void onAdLoaded(@NonNull InterstitialAd ad) { interstitialAd = ad; }
-            @Override public void onAdFailedToLoad(@NonNull LoadAdError err) { interstitialAd = null; }
-        });
-    }
-
-    // 📡 Ultra-Sleek Offline Page (No-White-Screen Freeze)
+    // High-Tech Offline Screen
     private void showProfessionalOfflinePage() {
         String offlineHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'>" +
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=no'>" +
                 "<style>" +
-                "* { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }" +
+                "* { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, sans-serif; }" +
                 "body { background:#040711; color:#FFF; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; overflow:hidden; }" +
                 ".radar-ring { width:96px; height:96px; border-radius:50%; background:rgba(0, 242, 254, 0.08); border:2px solid rgba(0, 242, 254, 0.3); display:flex; align-items:center; justify-content:center; font-size:42px; margin-bottom:20px; box-shadow:0 0 35px rgba(0, 242, 254, 0.2); animation:pulse 2s infinite; }" +
                 "@keyframes pulse { 0% { transform:scale(0.96); box-shadow:0 0 15px rgba(0,242,254,0.2); } 50% { transform:scale(1.04); box-shadow:0 0 35px rgba(0,242,254,0.4); } 100% { transform:scale(0.96); box-shadow:0 0 15px rgba(0,242,254,0.2); } }" +
                 "h2 { font-size:22px; font-weight:800; margin-bottom:8px; color:#FFF; }" +
                 "h2 span { color:#00F2FE; }" +
                 "p { font-size:13px; color:#94A3B8; max-width:280px; line-height:1.5; margin-bottom:28px; }" +
-                ".btn-retry { background:linear-gradient(135deg, #00F2FE, #3B82F6); color:#040711; font-size:15px; font-weight:800; border:none; padding:15px 32px; border-radius:16px; cursor:pointer; box-shadow:0 4px 22px rgba(0, 242, 254, 0.35); text-transform:uppercase; letter-spacing:0.5px; transition:transform 0.15s; }" +
+                ".btn-retry { background:linear-gradient(135deg, #00F2FE, #3B82F6); color:#040711; font-size:15px; font-weight:800; border:none; padding:15px 32px; border-radius:16px; cursor:pointer; box-shadow:0 4px 22px rgba(0, 242, 254, 0.35); text-transform:uppercase; letter-spacing:0.5px; }" +
                 ".btn-retry:active { transform:scale(0.96); }" +
                 "</style></head><body>" +
                 "<div class='radar-ring'>📡</div>" +
@@ -150,7 +139,6 @@ public class MainActivity extends AppCompatActivity {
                 "window.addEventListener('online', function() { handleRetry(); });" +
                 "</script></body></html>";
 
-        // 🛡️ Fix 2: Base URL me APP_URL use kiya hai taaki blank document na bane
         webView.loadDataWithBaseURL(APP_URL, offlineHtml, "text/html", "UTF-8", null);
     }
 
@@ -163,9 +151,9 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    // ================= JAVASCRIPT BRIDGE =================
     public class WebAppInterface {
 
-        // 🛡️ Fix 3: Smart Native Retry Connection
         @JavascriptInterface
         public void retryConnection() {
             runOnUiThread(() -> {
@@ -177,45 +165,50 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // 1. REWARDED AD (Mining ke liye)
         @JavascriptInterface
         public void showRewardedAd() {
-            runOnUiThread(() -> {
-                if (rewardedAd != null) {
-                    rewardedAd.show(MainActivity.this, rewardItem -> {
-                        webView.evaluateJavascript("window.onNativeAdRewarded('mining');", null);
-                        loadRewardedAd();
-                    });
-                } else {
-                    Toast.makeText(MainActivity.this, "Rewarded Ad loading... Please wait 5 seconds.", Toast.LENGTH_SHORT).show();
-                    loadRewardedAd();
-                }
-            });
+            showUnityAdInternal("mining", REWARDED_PLACEMENT_ID);
         }
 
+        // 2. REWARDED INTERSTITIAL AD (Tasks aur Coin Swap ke liye)
         @JavascriptInterface
         public void showRewardedInterstitialAd(String targetType) {
-            runOnUiThread(() -> {
-                if (rewardedInterstitialAd != null) {
-                    rewardedInterstitialAd.show(MainActivity.this, rewardItem -> {
-                        webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
-                        loadRewardedInterstitialAd();
-                    });
-                } else {
-                    Toast.makeText(MainActivity.this, "Rewarded Interstitial loading... Please wait 5 seconds.", Toast.LENGTH_SHORT).show();
-                    loadRewardedInterstitialAd();
-                }
-            });
+            showUnityAdInternal(targetType, REWARDED_PLACEMENT_ID);
         }
 
+        // 3. REGULAR INTERSTITIAL AD
         @JavascriptInterface
         public void showInterstitialAd() {
             runOnUiThread(() -> {
-                if (interstitialAd != null) {
-                    interstitialAd.show(MainActivity.this);
-                    loadInterstitialAd();
-                } else {
-                    loadInterstitialAd();
-                }
+                UnityAds.show(MainActivity.this, INTERSTITIAL_PLACEMENT_ID, new UnityAdsShowOptions(), null);
+                loadUnityAds();
+            });
+        }
+
+        private void showUnityAdInternal(String targetType, String placementId) {
+            runOnUiThread(() -> {
+                UnityAds.show(MainActivity.this, placementId, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
+                    @Override
+                    public void onUnityAdsShowFailure(String pId, UnityAds.UnityAdsShowError error, String message) {
+                        Toast.makeText(MainActivity.this, "Ad loading... Please tap again in 5s.", Toast.LENGTH_SHORT).show();
+                        loadUnityAds();
+                    }
+
+                    @Override
+                    public void onUnityAdsShowStart(String pId) {}
+
+                    @Override
+                    public void onUnityAdsShowClick(String pId) {}
+
+                    @Override
+                    public void onUnityAdsShowComplete(String pId, UnityAds.UnityAdsShowCompletionState state) {
+                        if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                            webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
+                        }
+                        loadUnityAds();
+                    }
+                });
             });
         }
     }
