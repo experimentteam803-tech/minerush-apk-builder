@@ -186,30 +186,41 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private void showUnityAdInternal(String targetType, String placementId) {
-            runOnUiThread(() -> {
-                UnityAds.show(MainActivity.this, placementId, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
-                    @Override
-                    public void onUnityAdsShowFailure(String pId, UnityAds.UnityAdsShowError error, String message) {
-                        Toast.makeText(MainActivity.this, "Ad loading... Please tap again in 5s.", Toast.LENGTH_SHORT).show();
-                        loadUnityAds();
-                    }
+        runOnUiThread(() -> {
+            Toast.makeText(MainActivity.this, "Fetching video ad, please wait...", Toast.LENGTH_SHORT).show();
 
-                    @Override
-                    public void onUnityAdsShowStart(String pId) {}
-
-                    @Override
-                    public void onUnityAdsShowClick(String pId) {}
-
-                    @Override
-                    public void onUnityAdsShowComplete(String pId, UnityAds.UnityAdsShowCompletionState state) {
-                        if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
-                            webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
+            // 1. Pehle Ad ko Live Load karo
+            UnityAds.load(placementId, new IUnityAdsLoadListener() {
+                @Override
+                public void onUnityAdsAdLoaded(String pId) {
+                    // 2. Ad load hote hi TURANT screen par dikhao!
+                    UnityAds.show(MainActivity.this, pId, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
+                        @Override
+                        public void onUnityAdsShowFailure(String id, UnityAds.UnityAdsShowError error, String message) {
+                            Toast.makeText(MainActivity.this, "Unity Show Error: " + message, Toast.LENGTH_LONG).show();
                         }
-                        loadUnityAds();
-                    }
-                });
+
+                        @Override
+                        public void onUnityAdsShowStart(String id) {}
+
+                        @Override
+                        public void onUnityAdsShowClick(String id) {}
+
+                        @Override
+                        public void onUnityAdsShowComplete(String id, UnityAds.UnityAdsShowCompletionState state) {
+                            if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                                webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
+                            }
+                        }
+                    });
+                }
+
+                @Override
+                public void onUnityAdsFailedToLoad(String pId, UnityAds.UnityAdsLoadError error, String message) {
+                    Toast.makeText(MainActivity.this, "Unity Load Error: " + message, Toast.LENGTH_LONG).show();
+                }
             });
-        }
+        });
     }
 
     @Override
