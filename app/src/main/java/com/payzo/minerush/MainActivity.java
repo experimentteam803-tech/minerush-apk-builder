@@ -1,5 +1,11 @@
 package com.payzo.minerush;
 
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.Uri;
+import android.os.Environment;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
