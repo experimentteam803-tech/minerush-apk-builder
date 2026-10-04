@@ -188,6 +188,48 @@ public class MainActivity extends AppCompatActivity {
 
     // ================= JAVASCRIPT BRIDGE =================
     public class WebAppInterface {
+        // 🚀 IN-APP BACKGROUND DOWNLOAD & AUTO INSTALL
+        @JavascriptInterface
+        public void downloadAndInstallApk(String downloadUrl) {
+            runOnUiThread(() -> {
+                try {
+                    Toast.makeText(MainActivity.this, "Downloading update in background...", Toast.LENGTH_LONG).show();
+
+                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl));
+                    request.setTitle("MineRush Update");
+                    request.setDescription("Downloading latest version...");
+                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "MineRush-Update.apk");
+                    request.setMimeType("application/vnd.android.package-archive");
+
+                    DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (dm != null) {
+                        long downloadId = dm.enqueue(request);
+
+                        // Download complete hote hi automatically Install screen kholo
+                        registerReceiver(new BroadcastReceiver() {
+                            @Override
+                            public void onReceive(Context context, Intent intent) {
+                                long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                                if (id == downloadId) {
+                                    Uri apkUri = dm.getUriForDownloadedFile(downloadId);
+                                    if (apkUri != null) {
+                                        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                                        installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                                        installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                        startActivity(installIntent);
+                                    }
+                                }
+                            }
+                        }, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+                    }
+                } catch (Exception e) {
+                    // Agar koi dikkat aaye toh external browser me link open karein
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
+                    startActivity(browserIntent);
+                }
+            });
+        }
 
         @JavascriptInterface
         public void retryConnection() {
