@@ -19,7 +19,7 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
 
-        <!-- 🚫 1. PERMANENTLY DISABLE START.IO SPLASH & PRIVACY CONSENT POPUP -->
+        <!-- 🚫 1. PERMANENTLY DISABLE START.IO SPLASH & CONSENT POPUP -->
         <meta-data
             android:name="com.startapp.sdk.SPLASH_ENABLED"
             android:value="false" />
@@ -32,6 +32,11 @@
         <meta-data
             android:name="com.startapp.sdk.APPLICATION_ID"
             android:value="209581916" />
+
+        <!-- 🚫 2. REMOVE START.IO CONSENT ACTIVITY FROM MANIFEST -->
+        <activity
+            android:name="com.startapp.sdk.adsbase.consent.ConsentActivity"
+            tools:node="remove" />
 
         <activity
             android:name=".MainActivity"
