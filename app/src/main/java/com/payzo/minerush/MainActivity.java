@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private StartAppAd startAppInterstitialAd;
     private String currentRewardTarget = "mining";
 
-    // 🛡️ ANTI-DOUBLE REWARD LOCK (Double reward aana 100% band)
+    // 🛡️ ANTI-DOUBLE REWARD LOCK
     private boolean isRewardAlreadyDelivered = false;
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
@@ -56,9 +56,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize Start.io Engine (Live Real Ads)
+        // 1. Initialize Start.io Engine (Privacy Dialog OFF & Return Ads OFF)
         StartAppSDK.init(this, STARTIO_APP_ID, false);
         StartAppSDK.enableReturnAds(false);
+        // Privacy Pop-up ko band karna
+        StartAppSDK.setUserConsent(this, "pas", System.currentTimeMillis(), false);
 
         startAppRewardedAd = new StartAppAd(this);
         startAppInterstitialAd = new StartAppAd(this);
@@ -76,10 +78,53 @@ public class MainActivity extends AppCompatActivity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setSupportMultipleWindows(true);
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
+        // 3. SMART EXTERNAL INTENT & AD REDIRECTION HANDLER (Play Store / Chrome Support)
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                return handleUrlNavigation(url);
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleUrlNavigation(url);
+            }
+
+            private boolean handleUrlNavigation(String url) {
+                if (url == null) return false;
+
+                // Agar url apne MineRush web app ka hai, toh WebView me hi chalne do
+                if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
+                    return false;
+                }
+
+                // Agar ad ya external link hai (Google Play Store, market://, ya external website)
+                try {
+                    Intent intent;
+                    if (url.startsWith("market://") || url.startsWith("intent://")) {
+                        intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                    } else {
+                        intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    }
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                    return true;
+                } catch (Exception e) {
+                    // Agar app phone me na ho (jaise specific market), toh browser me khol do
+                    try {
+                        Intent browserFallback = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(browserFallback);
+                        return true;
+                    } catch (Exception ignored) {}
+                }
+                return false;
+            }
+
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
@@ -239,18 +284,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // ⚡ SMART SINGLE-REWARD ENGINE (DOUBLE REWARD FIXED)
+    // ⚡ SMART SINGLE-REWARD ENGINE
     // =========================================================================
     private void playSmartRewardedAd(final String targetType) {
         currentRewardTarget = targetType;
-        isRewardAlreadyDelivered = false; // Reset lock for this ad session
+        isRewardAlreadyDelivered = false;
 
         runOnUiThread(() -> {
             if (startAppRewardedAd == null) {
                 startAppRewardedAd = new StartAppAd(MainActivity.this);
             }
 
-            // Video complete listener
             startAppRewardedAd.setVideoListener(new VideoListener() {
                 @Override
                 public void onVideoCompleted() {
@@ -260,9 +304,7 @@ public class MainActivity extends AppCompatActivity {
 
             boolean displayed = startAppRewardedAd.showAd(new AdDisplayListener() {
                 @Override public void adHidden(Ad ad) {
-                    // Agar video complete nahi hua tha par ad close hua, toh reward dein
                     deliverSingleReward(currentRewardTarget);
-                    // Agle ad ke liye fresh inventory load karein
                     preloadStartIoAds();
                 }
                 @Override public void adDisplayed(Ad ad) {}
@@ -322,9 +364,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🔒 SINGLE REWARD DISPATCHER (Ek baar deliver hone ke baad dobara nahi chalega)
     private synchronized void deliverSingleReward(String tag) {
-        if (isRewardAlreadyDelivered) return; // Pehle se mil chuka hai toh ignore karein
+        if (isRewardAlreadyDelivered) return;
         isRewardAlreadyDelivered = true;
 
         new Handler(Looper.getMainLooper()).post(() -> {
