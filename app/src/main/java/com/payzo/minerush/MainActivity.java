@@ -55,11 +55,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 🚫 1. DISABLE PRIVACY POPUP & SPLASH CONSENT SCREEN PERMANENTLY
+        // 🚫 1. KILL PRIVACY POPUP: Pass true so Start.io NEVER prompts again
         StartAppAd.disableSplash();
         StartAppSDK.init(this, STARTIO_APP_ID, false);
         StartAppSDK.enableReturnAds(false);
-        StartAppSDK.setUserConsent(this, "pas", System.currentTimeMillis(), false);
+        StartAppSDK.setUserConsent(this, "pas", System.currentTimeMillis(), true);
 
         setContentView(R.layout.activity_main);
 
@@ -83,28 +83,28 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 3. SMART EXTERNAL INTENT & AD REDIRECTION HANDLER (Play Store / Chrome Support)
+        // 3. SMART EXTERNAL REDIRECT TO CHROME & PLAY STORE
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                return handleUrlNavigation(url);
+                return handleUrlRedirect(url);
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return handleUrlNavigation(url);
+                return handleUrlRedirect(url);
             }
 
-            private boolean handleUrlNavigation(String url) {
+            private boolean handleUrlRedirect(String url) {
                 if (url == null) return false;
 
-                // Agar url MineRush ka hai, toh WebView me chalne do
+                // Agar MineRush app ka internal URL hai, toh WebView me chalne do
                 if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
                     return false;
                 }
 
-                // Agar ad ka click ya external link hai (Google Play Store, Chrome, etc.)
+                // Saare external links (Telegram, Tasks, Play Store, Websites) Chrome me open karo
                 try {
                     Intent intent;
                     if (url.startsWith("market://") || url.startsWith("intent://")) {
@@ -285,7 +285,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // ⚡ SMART SINGLE-REWARD ENGINE WITH EXTERNAL REDIRECT SUPPORT
+    // ⚡ SMART SINGLE-REWARD ENGINE
     // =========================================================================
     private void playSmartRewardedAd(final String targetType) {
         currentRewardTarget = targetType;
