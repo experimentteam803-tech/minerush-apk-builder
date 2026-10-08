@@ -30,13 +30,14 @@ import com.startapp.sdk.adsbase.Ad;
 import com.startapp.sdk.adsbase.StartAppAd;
 import com.startapp.sdk.adsbase.StartAppSDK;
 import com.startapp.sdk.adsbase.adlisteners.AdDisplayListener;
+import com.startapp.sdk.adsbase.adlisteners.AdEventListener;
 import com.startapp.sdk.adsbase.adlisteners.VideoListener;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
 
-    // Aapki verified Start.io App ID
+    // Aapki Start.io App ID
     private static final String STARTIO_APP_ID = "209581916";
 
     private StartAppAd startAppRewardedAd;
@@ -52,14 +53,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize Start.io Engine (Real Video Ads Mode)
+        // 1. Initialize Start.io Engine (Live Real Ads)
         StartAppSDK.init(this, STARTIO_APP_ID, false);
         StartAppSDK.enableReturnAds(false); // Clean UX, return splash ads off
 
         startAppRewardedAd = new StartAppAd(this);
         startAppInterstitialAd = new StartAppAd(this);
 
-        // App start hote hi pehla video background me download karna
+        // Background me ads pehle se download karke rakhna
         preloadStartIoAds();
 
         // 2. Setup WebView
@@ -95,20 +96,13 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // =========================================================================
-    // 🎬 START.IO HIGH-PAYING VIDEO ADS PRELOAD ENGINE
-    // =========================================================================
     private void preloadStartIoAds() {
-        if (startAppRewardedAd == null) {
-            startAppRewardedAd = new StartAppAd(this);
+        if (startAppRewardedAd != null) {
+            startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
         }
-        // Force REWARDED_VIDEO mode download
-        startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
-
-        if (startAppInterstitialAd == null) {
-            startAppInterstitialAd = new StartAppAd(this);
+        if (startAppInterstitialAd != null) {
+            startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
         }
-        startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
     }
 
     // High-Tech Offline Screen
@@ -207,30 +201,30 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 1. REWARDED VIDEO ADS (Mining, Upgrade, Swap)
+        // 1. REWARDED ADS (Mining, Upgrade, Swap)
         @JavascriptInterface
         public void showRewardedInterstitialAd(String targetType) {
-            playStartIoRewardedAd(targetType != null ? targetType : "mining");
+            playSmartRewardedAd(targetType != null ? targetType : "mining");
         }
 
-        // 2. REWARDED VIDEO ADS (Task 1)
+        // 2. REWARDED ADS (Task 1)
         @JavascriptInterface
         public void showRewardedAd() {
-            playStartIoRewardedAd("admob_task1");
+            playSmartRewardedAd("admob_task1");
         }
 
         @JavascriptInterface
         public void showRewardedAd(String targetType) {
-            playStartIoRewardedAd(targetType != null ? targetType : "mining");
+            playSmartRewardedAd(targetType != null ? targetType : "mining");
         }
 
-        // 3. REWARDED VIDEO ADS (Task 2 & 7-Day Claim)
+        // 3. REWARDED ADS (Task 2 & 7-Day Claim)
         @JavascriptInterface
         public void showAppLovinRewarded(String targetType) {
-            playStartIoRewardedAd(targetType != null ? targetType : "task_2");
+            playSmartRewardedAd(targetType != null ? targetType : "task_2");
         }
 
-        // 4. INTERSTITIAL FULLSCREEN ADS (Auto Tab Browsing)
+        // 4. INTERSTITIAL AUTO SCREEN ADS
         @JavascriptInterface
         public void showAppLovinInterstitial() {
             showStartIoInterstitial();
@@ -243,27 +237,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // 🎥 REWARDED VIDEO PLAY HANDLER (HD VIDEO ONLY)
+    // ⚡ SMART HYBRID REWARDED AD ENGINE (NO MORE WAITING / ZERO BUFFER STALL)
     // =========================================================================
-    private void playStartIoRewardedAd(String targetType) {
+    private void playSmartRewardedAd(final String targetType) {
         currentRewardTarget = targetType;
         runOnUiThread(() -> {
             if (startAppRewardedAd == null) {
                 startAppRewardedAd = new StartAppAd(MainActivity.this);
             }
 
-            // Video dekhne ke baad hi coin credit honge
+            // 1. Video completion listener
             startAppRewardedAd.setVideoListener(new VideoListener() {
                 @Override
                 public void onVideoCompleted() {
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        if (webView != null) {
-                            webView.evaluateJavascript("window.onNativeAdRewarded('" + currentRewardTarget + "');", null);
-                        }
-                    });
+                    notifyWebReward(currentRewardTarget);
                 }
             });
 
+            // 2. Try showing cached video
             boolean displayed = startAppRewardedAd.showAd(new AdDisplayListener() {
                 @Override public void adHidden(Ad ad) {
                     preloadStartIoAds();
@@ -271,19 +262,69 @@ public class MainActivity extends AppCompatActivity {
                 @Override public void adDisplayed(Ad ad) {}
                 @Override public void adClicked(Ad ad) {}
                 @Override public void adNotDisplayed(Ad ad) {
-                    Toast.makeText(MainActivity.this, "Buffering HD Video... Please tap again in 3s.", Toast.LENGTH_SHORT).show();
-                    preloadStartIoAds();
+                    // Agar video ready nahi thi, toh user ko rokne ke bajaye turant full interstitial ad chalao!
+                    showFallbackInterstitialReward(currentRewardTarget);
                 }
             });
 
+            // 3. Agar video ad buffering me tha, toh instant full ad dikhao taaki user atke nahi!
             if (!displayed) {
-                startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
-                Toast.makeText(MainActivity.this, "Loading video ad, please tap again in 3s.", Toast.LENGTH_SHORT).show();
+                showFallbackInterstitialReward(currentRewardTarget);
             }
         });
     }
 
-    // Interstitial Ad Handler
+    // Fallback Fullscreen Ad: Hamesha ready rehta hai aur ad close hone par user ko 100% coins deta hai!
+    private void showFallbackInterstitialReward(final String targetType) {
+        if (startAppInterstitialAd == null) {
+            startAppInterstitialAd = new StartAppAd(MainActivity.this);
+        }
+
+        boolean displayed = startAppInterstitialAd.showAd(new AdDisplayListener() {
+            @Override
+            public void adHidden(Ad ad) {
+                // User ne full ad dekha aur close kiya -> Coins credit karo!
+                notifyWebReward(targetType);
+                preloadStartIoAds();
+            }
+
+            @Override public void adDisplayed(Ad ad) {}
+            @Override public void adClicked(Ad ad) {}
+            @Override
+            public void adNotDisplayed(Ad ad) {
+                // Agar ad load ho raha tha, toh load hote hi turant popup dikhao
+                startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC, new AdEventListener() {
+                    @Override
+                    public void onReceiveAd(Ad ad) {
+                        startAppInterstitialAd.showAd(new AdDisplayListener() {
+                            @Override
+                            public void adHidden(Ad ad) {
+                                notifyWebReward(targetType);
+                                preloadStartIoAds();
+                            }
+                            @Override public void adDisplayed(Ad ad) {}
+                            @Override public void adClicked(Ad ad) {}
+                            @Override public void adNotDisplayed(Ad ad) {
+                                notifyWebReward(targetType);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onFailedToReceiveAd(Ad ad) {
+                        Toast.makeText(MainActivity.this, "Sponsor network busy. Bonus granted!", Toast.LENGTH_SHORT).show();
+                        notifyWebReward(targetType);
+                    }
+                });
+            }
+        });
+
+        if (!displayed) {
+            preloadStartIoAds();
+        }
+    }
+
+    // Automatic Interstitial (Natural tab changes)
     private void showStartIoInterstitial() {
         runOnUiThread(() -> {
             if (startAppInterstitialAd == null) {
@@ -291,18 +332,22 @@ public class MainActivity extends AppCompatActivity {
             }
 
             boolean displayed = startAppInterstitialAd.showAd(new AdDisplayListener() {
-                @Override public void adHidden(Ad ad) {
-                    preloadStartIoAds();
-                }
+                @Override public void adHidden(Ad ad) { preloadStartIoAds(); }
                 @Override public void adDisplayed(Ad ad) {}
                 @Override public void adClicked(Ad ad) {}
-                @Override public void adNotDisplayed(Ad ad) {
-                    preloadStartIoAds();
-                }
+                @Override public void adNotDisplayed(Ad ad) { preloadStartIoAds(); }
             });
 
             if (!displayed) {
                 startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
+            }
+        });
+    }
+
+    private void notifyWebReward(String tag) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
             }
         });
     }
