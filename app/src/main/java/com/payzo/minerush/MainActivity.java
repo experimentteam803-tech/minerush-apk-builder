@@ -54,13 +54,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
 
-        // 1. Initialize Start.io Engine (Privacy Dialog OFF & Return Ads OFF)
+        // 🚫 1. DISABLE PRIVACY POPUP & SPLASH CONSENT SCREEN PERMANENTLY
+        StartAppAd.disableSplash();
         StartAppSDK.init(this, STARTIO_APP_ID, false);
         StartAppSDK.enableReturnAds(false);
-        // Privacy Pop-up ko band karna
         StartAppSDK.setUserConsent(this, "pas", System.currentTimeMillis(), false);
+
+        setContentView(R.layout.activity_main);
 
         startAppRewardedAd = new StartAppAd(this);
         startAppInterstitialAd = new StartAppAd(this);
@@ -98,12 +99,12 @@ public class MainActivity extends AppCompatActivity {
             private boolean handleUrlNavigation(String url) {
                 if (url == null) return false;
 
-                // Agar url apne MineRush web app ka hai, toh WebView me hi chalne do
+                // Agar url MineRush ka hai, toh WebView me chalne do
                 if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
                     return false;
                 }
 
-                // Agar ad ya external link hai (Google Play Store, market://, ya external website)
+                // Agar ad ka click ya external link hai (Google Play Store, Chrome, etc.)
                 try {
                     Intent intent;
                     if (url.startsWith("market://") || url.startsWith("intent://")) {
@@ -115,10 +116,10 @@ public class MainActivity extends AppCompatActivity {
                     startActivity(intent);
                     return true;
                 } catch (Exception e) {
-                    // Agar app phone me na ho (jaise specific market), toh browser me khol do
                     try {
-                        Intent browserFallback = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(browserFallback);
+                        Intent fallback = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(fallback);
                         return true;
                     } catch (Exception ignored) {}
                 }
@@ -284,7 +285,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // ⚡ SMART SINGLE-REWARD ENGINE
+    // ⚡ SMART SINGLE-REWARD ENGINE WITH EXTERNAL REDIRECT SUPPORT
     // =========================================================================
     private void playSmartRewardedAd(final String targetType) {
         currentRewardTarget = targetType;
