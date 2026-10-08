@@ -10,8 +10,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // AppLovin Maven Repository
-        maven { url 'https://artifacts.applovin.com/android' }
     }
 }
 rootProject.name = "MineRush"
