@@ -44,6 +44,9 @@ public class MainActivity extends AppCompatActivity {
     private StartAppAd startAppInterstitialAd;
     private String currentRewardTarget = "mining";
 
+    // 🛡️ ANTI-DOUBLE REWARD LOCK (Double reward aana 100% band)
+    private boolean isRewardAlreadyDelivered = false;
+
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
 
@@ -55,12 +58,11 @@ public class MainActivity extends AppCompatActivity {
 
         // 1. Initialize Start.io Engine (Live Real Ads)
         StartAppSDK.init(this, STARTIO_APP_ID, false);
-        StartAppSDK.enableReturnAds(false); // Clean UX, return splash ads off
+        StartAppSDK.enableReturnAds(false);
 
         startAppRewardedAd = new StartAppAd(this);
         startAppInterstitialAd = new StartAppAd(this);
 
-        // Background me ads pehle se download karke rakhna
         preloadStartIoAds();
 
         // 2. Setup WebView
@@ -149,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
     public class WebAppInterface {
 
-        // 🚀 IN-APP BACKGROUND DOWNLOAD & AUTO INSTALL
+        // In-App Background APK Download
         @JavascriptInterface
         public void downloadAndInstallApk(String downloadUrl) {
             runOnUiThread(() -> {
@@ -224,7 +226,7 @@ public class MainActivity extends AppCompatActivity {
             playSmartRewardedAd(targetType != null ? targetType : "task_2");
         }
 
-        // 4. INTERSTITIAL AUTO SCREEN ADS
+        // 4. AUTO INTERSTITIAL
         @JavascriptInterface
         public void showAppLovinInterstitial() {
             showStartIoInterstitial();
@@ -237,44 +239,45 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // ⚡ SMART HYBRID REWARDED AD ENGINE (NO MORE WAITING / ZERO BUFFER STALL)
+    // ⚡ SMART SINGLE-REWARD ENGINE (DOUBLE REWARD FIXED)
     // =========================================================================
     private void playSmartRewardedAd(final String targetType) {
         currentRewardTarget = targetType;
+        isRewardAlreadyDelivered = false; // Reset lock for this ad session
+
         runOnUiThread(() -> {
             if (startAppRewardedAd == null) {
                 startAppRewardedAd = new StartAppAd(MainActivity.this);
             }
 
-            // 1. Video completion listener
+            // Video complete listener
             startAppRewardedAd.setVideoListener(new VideoListener() {
                 @Override
                 public void onVideoCompleted() {
-                    notifyWebReward(currentRewardTarget);
+                    deliverSingleReward(currentRewardTarget);
                 }
             });
 
-            // 2. Try showing cached video
             boolean displayed = startAppRewardedAd.showAd(new AdDisplayListener() {
                 @Override public void adHidden(Ad ad) {
+                    // Agar video complete nahi hua tha par ad close hua, toh reward dein
+                    deliverSingleReward(currentRewardTarget);
+                    // Agle ad ke liye fresh inventory load karein
                     preloadStartIoAds();
                 }
                 @Override public void adDisplayed(Ad ad) {}
                 @Override public void adClicked(Ad ad) {}
                 @Override public void adNotDisplayed(Ad ad) {
-                    // Agar video ready nahi thi, toh user ko rokne ke bajaye turant full interstitial ad chalao!
                     showFallbackInterstitialReward(currentRewardTarget);
                 }
             });
 
-            // 3. Agar video ad buffering me tha, toh instant full ad dikhao taaki user atke nahi!
             if (!displayed) {
                 showFallbackInterstitialReward(currentRewardTarget);
             }
         });
     }
 
-    // Fallback Fullscreen Ad: Hamesha ready rehta hai aur ad close hone par user ko 100% coins deta hai!
     private void showFallbackInterstitialReward(final String targetType) {
         if (startAppInterstitialAd == null) {
             startAppInterstitialAd = new StartAppAd(MainActivity.this);
@@ -283,37 +286,32 @@ public class MainActivity extends AppCompatActivity {
         boolean displayed = startAppInterstitialAd.showAd(new AdDisplayListener() {
             @Override
             public void adHidden(Ad ad) {
-                // User ne full ad dekha aur close kiya -> Coins credit karo!
-                notifyWebReward(targetType);
+                deliverSingleReward(targetType);
                 preloadStartIoAds();
             }
-
             @Override public void adDisplayed(Ad ad) {}
             @Override public void adClicked(Ad ad) {}
-            @Override
-            public void adNotDisplayed(Ad ad) {
-                // Agar ad load ho raha tha, toh load hote hi turant popup dikhao
+            @Override public void adNotDisplayed(Ad ad) {
                 startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC, new AdEventListener() {
                     @Override
                     public void onReceiveAd(Ad ad) {
                         startAppInterstitialAd.showAd(new AdDisplayListener() {
-                            @Override
-                            public void adHidden(Ad ad) {
-                                notifyWebReward(targetType);
+                            @Override public void adHidden(Ad ad) {
+                                deliverSingleReward(targetType);
                                 preloadStartIoAds();
                             }
                             @Override public void adDisplayed(Ad ad) {}
                             @Override public void adClicked(Ad ad) {}
                             @Override public void adNotDisplayed(Ad ad) {
-                                notifyWebReward(targetType);
+                                deliverSingleReward(targetType);
                             }
                         });
                     }
 
                     @Override
                     public void onFailedToReceiveAd(Ad ad) {
-                        Toast.makeText(MainActivity.this, "Sponsor network busy. Bonus granted!", Toast.LENGTH_SHORT).show();
-                        notifyWebReward(targetType);
+                        Toast.makeText(MainActivity.this, "Network busy. Reward granted!", Toast.LENGTH_SHORT).show();
+                        deliverSingleReward(targetType);
                     }
                 });
             }
@@ -324,7 +322,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Automatic Interstitial (Natural tab changes)
+    // 🔒 SINGLE REWARD DISPATCHER (Ek baar deliver hone ke baad dobara nahi chalega)
+    private synchronized void deliverSingleReward(String tag) {
+        if (isRewardAlreadyDelivered) return; // Pehle se mil chuka hai toh ignore karein
+        isRewardAlreadyDelivered = true;
+
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
+            }
+        });
+    }
+
     private void showStartIoInterstitial() {
         runOnUiThread(() -> {
             if (startAppInterstitialAd == null) {
@@ -340,14 +349,6 @@ public class MainActivity extends AppCompatActivity {
 
             if (!displayed) {
                 startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
-            }
-        });
-    }
-
-    private void notifyWebReward(String tag) {
-        new Handler(Looper.getMainLooper()).post(() -> {
-            if (webView != null) {
-                webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
             }
         });
     }
