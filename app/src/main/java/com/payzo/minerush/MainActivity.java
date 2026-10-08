@@ -36,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
 
-    // Aapki Start.io App ID
+    // Aapki verified Start.io App ID
     private static final String STARTIO_APP_ID = "209581916";
 
     private StartAppAd startAppRewardedAd;
@@ -52,13 +52,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize Start.io Engine (Real Ads Mode)
+        // 1. Initialize Start.io Engine (Real Video Ads Mode)
         StartAppSDK.init(this, STARTIO_APP_ID, false);
-        StartAppSDK.enableReturnAds(false); // Return splash ads off for clean user experience
+        StartAppSDK.enableReturnAds(false); // Clean UX, return splash ads off
 
         startAppRewardedAd = new StartAppAd(this);
         startAppInterstitialAd = new StartAppAd(this);
 
+        // App start hote hi pehla video background me download karna
         preloadStartIoAds();
 
         // 2. Setup WebView
@@ -94,13 +95,20 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
+    // =========================================================================
+    // 🎬 START.IO HIGH-PAYING VIDEO ADS PRELOAD ENGINE
+    // =========================================================================
     private void preloadStartIoAds() {
-        if (startAppRewardedAd != null) {
-            startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
+        if (startAppRewardedAd == null) {
+            startAppRewardedAd = new StartAppAd(this);
         }
-        if (startAppInterstitialAd != null) {
-            startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
+        // Force REWARDED_VIDEO mode download
+        startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
+
+        if (startAppInterstitialAd == null) {
+            startAppInterstitialAd = new StartAppAd(this);
         }
+        startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
     }
 
     // High-Tech Offline Screen
@@ -142,7 +150,9 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    // ================= JAVASCRIPT BRIDGE =================
+    // =========================================================================
+    // 🌐 JAVASCRIPT BRIDGE INTERFACE
+    // =========================================================================
     public class WebAppInterface {
 
         // 🚀 IN-APP BACKGROUND DOWNLOAD & AUTO INSTALL
@@ -197,14 +207,13 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // ================= START.IO REWARDED ADS HANDLERS =================
-        // 1. Mining, Machine Upgrade, Swap
+        // 1. REWARDED VIDEO ADS (Mining, Upgrade, Swap)
         @JavascriptInterface
         public void showRewardedInterstitialAd(String targetType) {
             playStartIoRewardedAd(targetType != null ? targetType : "mining");
         }
 
-        // 2. Standard Task 1
+        // 2. REWARDED VIDEO ADS (Task 1)
         @JavascriptInterface
         public void showRewardedAd() {
             playStartIoRewardedAd("admob_task1");
@@ -215,14 +224,13 @@ public class MainActivity extends AppCompatActivity {
             playStartIoRewardedAd(targetType != null ? targetType : "mining");
         }
 
-        // 3. Task 2 & 7-Day Claim (Previously AppLovin)
+        // 3. REWARDED VIDEO ADS (Task 2 & 7-Day Claim)
         @JavascriptInterface
         public void showAppLovinRewarded(String targetType) {
             playStartIoRewardedAd(targetType != null ? targetType : "task_2");
         }
 
-        // ================= START.IO INTERSTITIAL HANDLER =================
-        // 4. Natural Tab Browsing Full-screen Ad
+        // 4. INTERSTITIAL FULLSCREEN ADS (Auto Tab Browsing)
         @JavascriptInterface
         public void showAppLovinInterstitial() {
             showStartIoInterstitial();
@@ -234,6 +242,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // =========================================================================
+    // 🎥 REWARDED VIDEO PLAY HANDLER (HD VIDEO ONLY)
+    // =========================================================================
     private void playStartIoRewardedAd(String targetType) {
         currentRewardTarget = targetType;
         runOnUiThread(() -> {
@@ -241,10 +252,10 @@ public class MainActivity extends AppCompatActivity {
                 startAppRewardedAd = new StartAppAd(MainActivity.this);
             }
 
+            // Video dekhne ke baad hi coin credit honge
             startAppRewardedAd.setVideoListener(new VideoListener() {
                 @Override
                 public void onVideoCompleted() {
-                    // Ad video complete hone par web app me coins credit karna
                     new Handler(Looper.getMainLooper()).post(() -> {
                         if (webView != null) {
                             webView.evaluateJavascript("window.onNativeAdRewarded('" + currentRewardTarget + "');", null);
@@ -260,18 +271,19 @@ public class MainActivity extends AppCompatActivity {
                 @Override public void adDisplayed(Ad ad) {}
                 @Override public void adClicked(Ad ad) {}
                 @Override public void adNotDisplayed(Ad ad) {
-                    Toast.makeText(MainActivity.this, "Ad is buffering... Try again in 5s.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Buffering HD Video... Please tap again in 3s.", Toast.LENGTH_SHORT).show();
                     preloadStartIoAds();
                 }
             });
 
             if (!displayed) {
                 startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
-                Toast.makeText(MainActivity.this, "Loading ad, tap again in 5s.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Loading video ad, please tap again in 3s.", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
+    // Interstitial Ad Handler
     private void showStartIoInterstitial() {
         runOnUiThread(() -> {
             if (startAppInterstitialAd == null) {
