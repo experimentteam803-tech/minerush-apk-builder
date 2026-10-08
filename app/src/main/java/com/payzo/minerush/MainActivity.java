@@ -1,18 +1,20 @@
 package com.payzo.minerush;
 
+import android.annotation.SuppressLint;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.Uri;
-import android.os.Environment;
-import android.annotation.SuppressLint;
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -20,52 +22,26 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
+
 import androidx.appcompat.app.AppCompatActivity;
 
-// Google AdMob Imports
-import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.LoadAdError;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.rewarded.RewardedAd;
-import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
-import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd;
-import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback;
-
-// AppLovin Imports
-import com.applovin.sdk.AppLovinSdk;
-import com.applovin.sdk.AppLovinSdkConfiguration;
-import com.applovin.adview.AppLovinIncentivizedInterstitial;
-import com.applovin.adview.AppLovinInterstitialAd;
-import com.applovin.adview.AppLovinInterstitialAdDialog;
-import com.applovin.sdk.AppLovinAd;
-import com.applovin.sdk.AppLovinAdDisplayListener;
-import com.applovin.sdk.AppLovinAdLoadListener;
-import com.applovin.sdk.AppLovinAdRewardListener;
-import com.applovin.sdk.AppLovinAdVideoPlaybackListener;
-
-import java.util.Map;
+// Start.io Official SDK Imports
+import com.startapp.sdk.adsbase.Ad;
+import com.startapp.sdk.adsbase.StartAppAd;
+import com.startapp.sdk.adsbase.StartAppSDK;
+import com.startapp.sdk.adsbase.adlisteners.AdDisplayListener;
+import com.startapp.sdk.adsbase.adlisteners.VideoListener;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
 
-    // =========================================================================
-    // 🎯 1. GOOGLE ADMOB TEST AD UNIT IDs (Baad me yahan Real IDs lagana)
-    // =========================================================================
-    // Mining, Rig Upgrade & Currency Swap ke liye
-    private static final String ADMOB_TEST_REWARDED_INTERSTITIAL = "ca-app-pub-3940256099942544/5354046379";
-    // Task 1 ke liye
-    private static final String ADMOB_TEST_REWARDED = "ca-app-pub-3940256099942544/5224354917";
+    // Aapki Start.io App ID
+    private static final String STARTIO_APP_ID = "209581916";
 
-    private RewardedInterstitialAd admobRewardedInterstitial;
-    private RewardedAd admobRewarded;
-
-    // =========================================================================
-    // 🎯 2. APPLOVIN TEST CONFIGURATION (Task 2, 7-Day Claim, Auto Interstitial)
-    // =========================================================================
-    private AppLovinIncentivizedInterstitial appLovinRewarded;
-    private AppLovinInterstitialAdDialog appLovinInterstitial;
+    private StartAppAd startAppRewardedAd;
+    private StartAppAd startAppInterstitialAd;
+    private String currentRewardTarget = "mining";
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
@@ -76,18 +52,16 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize AdMob Engine
-        MobileAds.initialize(this, initializationStatus -> {});
-        loadAdMobAds();
+        // 1. Initialize Start.io Engine (Real Ads Mode)
+        StartAppSDK.init(this, STARTIO_APP_ID, false);
+        StartAppSDK.enableReturnAds(false); // Return splash ads off for clean user experience
 
-        // 2. Initialize AppLovin Engine in Test Mode
-        AppLovinSdk appLovinSdk = AppLovinSdk.getInstance(this);
-        appLovinSdk.getSettings().setVerboseLogging(true);
-        appLovinSdk.initializeSdk((AppLovinSdkConfiguration configuration) -> {
-            loadAppLovinAds();
-        });
+        startAppRewardedAd = new StartAppAd(this);
+        startAppInterstitialAd = new StartAppAd(this);
 
-        // 3. Setup WebView
+        preloadStartIoAds();
+
+        // 2. Setup WebView
         webView = findViewById(R.id.webview);
         webView.setBackgroundColor(Color.parseColor("#040711"));
 
@@ -120,31 +94,13 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // ================= ADS LOADING =================
-    private void loadAdMobAds() {
-        // Load AdMob Rewarded Interstitial
-        AdRequest req1 = new AdRequest.Builder().build();
-        RewardedInterstitialAd.load(this, ADMOB_TEST_REWARDED_INTERSTITIAL, req1, new RewardedInterstitialAdLoadCallback() {
-            @Override public void onAdLoaded(@NonNull RewardedInterstitialAd ad) { admobRewardedInterstitial = ad; }
-            @Override public void onAdFailedToLoad(@NonNull LoadAdError err) { admobRewardedInterstitial = null; }
-        });
-
-        // Load AdMob Standard Rewarded Video
-        AdRequest req2 = new AdRequest.Builder().build();
-        RewardedAd.load(this, ADMOB_TEST_REWARDED, req2, new RewardedAdLoadCallback() {
-            @Override public void onAdLoaded(@NonNull RewardedAd ad) { admobRewarded = ad; }
-            @Override public void onAdFailedToLoad(@NonNull LoadAdError err) { admobRewarded = null; }
-        });
-    }
-
-    private void loadAppLovinAds() {
-        appLovinRewarded = AppLovinIncentivizedInterstitial.create(this);
-        appLovinRewarded.preload(new AppLovinAdLoadListener() {
-            @Override public void adReceived(AppLovinAd ad) {}
-            @Override public void failedToReceiveAd(int errorCode) {}
-        });
-
-        appLovinInterstitial = AppLovinInterstitialAd.create(AppLovinSdk.getInstance(this), this);
+    private void preloadStartIoAds() {
+        if (startAppRewardedAd != null) {
+            startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
+        }
+        if (startAppInterstitialAd != null) {
+            startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
+        }
     }
 
     // High-Tech Offline Screen
@@ -188,6 +144,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ================= JAVASCRIPT BRIDGE =================
     public class WebAppInterface {
+
         // 🚀 IN-APP BACKGROUND DOWNLOAD & AUTO INSTALL
         @JavascriptInterface
         public void downloadAndInstallApk(String downloadUrl) {
@@ -206,7 +163,6 @@ public class MainActivity extends AppCompatActivity {
                     if (dm != null) {
                         long downloadId = dm.enqueue(request);
 
-                        // Download complete hote hi automatically Install screen kholo
                         registerReceiver(new BroadcastReceiver() {
                             @Override
                             public void onReceive(Context context, Intent intent) {
@@ -224,7 +180,6 @@ public class MainActivity extends AppCompatActivity {
                         }, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
                     }
                 } catch (Exception e) {
-                    // Agar koi dikkat aaye toh external browser me link open karein
                     Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
                     startActivity(browserIntent);
                 }
@@ -242,75 +197,102 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 1. ADMOB REWARDED INTERSTITIAL (Mining, Upgrade, Swap)
+        // ================= START.IO REWARDED ADS HANDLERS =================
+        // 1. Mining, Machine Upgrade, Swap
         @JavascriptInterface
         public void showRewardedInterstitialAd(String targetType) {
-            runOnUiThread(() -> {
-                if (admobRewardedInterstitial != null) {
-                    admobRewardedInterstitial.show(MainActivity.this, rewardItem -> {
-                        webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
-                        loadAdMobAds();
-                    });
-                } else {
-                    Toast.makeText(MainActivity.this, "AdMob loading... Tap again in 5s.", Toast.LENGTH_SHORT).show();
-                    loadAdMobAds();
-                }
-            });
+            playStartIoRewardedAd(targetType != null ? targetType : "mining");
         }
 
-        // 2. ADMOB STANDARD REWARDED (Task 1)
+        // 2. Standard Task 1
         @JavascriptInterface
         public void showRewardedAd() {
-            runOnUiThread(() -> {
-                if (admobRewarded != null) {
-                    admobRewarded.show(MainActivity.this, rewardItem -> {
-                        webView.evaluateJavascript("window.onNativeAdRewarded('admob_task1');", null);
-                        loadAdMobAds();
-                    });
-                } else {
-                    Toast.makeText(MainActivity.this, "AdMob video loading... Tap again in 5s.", Toast.LENGTH_SHORT).show();
-                    loadAdMobAds();
-                }
-            });
+            playStartIoRewardedAd("admob_task1");
         }
 
-        // 3. APPLOVIN REWARDED (Task 2 & 7-Day Daily Claim)
+        @JavascriptInterface
+        public void showRewardedAd(String targetType) {
+            playStartIoRewardedAd(targetType != null ? targetType : "mining");
+        }
+
+        // 3. Task 2 & 7-Day Claim (Previously AppLovin)
         @JavascriptInterface
         public void showAppLovinRewarded(String targetType) {
-            runOnUiThread(() -> {
-                if (appLovinRewarded != null && appLovinRewarded.isAdReadyToDisplay()) {
-                    appLovinRewarded.show(MainActivity.this, new AppLovinAdRewardListener() {
-                        @Override
-                        public void userRewardVerified(AppLovinAd ad, Map<String, String> response) {
-                            webView.evaluateJavascript("window.onNativeAdRewarded('" + targetType + "');", null);
-                            loadAppLovinAds();
-                        }
-                        @Override public void userOverQuota(AppLovinAd ad, Map<String, String> response) {}
-                        @Override public void userRewardRejected(AppLovinAd ad, Map<String, String> response) {}
-                        @Override public void validationRequestFailed(AppLovinAd ad, int errorCode) {}
-                    }, new AppLovinAdVideoPlaybackListener() {
-                        @Override public void videoPlaybackBegan(AppLovinAd ad) {}
-                        @Override public void videoPlaybackEnded(AppLovinAd ad, double percentViewed, boolean fullyWatched) {}
-                    }, new AppLovinAdDisplayListener() {
-                        @Override public void adDisplayed(AppLovinAd ad) {}
-                        @Override public void adHidden(AppLovinAd ad) { loadAppLovinAds(); }
-                    }, null);
-                } else {
-                    Toast.makeText(MainActivity.this, "AppLovin ad loading... Tap again in 5s.", Toast.LENGTH_SHORT).show();
-                    loadAppLovinAds();
-                }
-            });
+            playStartIoRewardedAd(targetType != null ? targetType : "task_2");
         }
 
-        // 4. APPLOVIN AUTOMATIC INTERSTITIAL (Natural Tab Browsing)
+        // ================= START.IO INTERSTITIAL HANDLER =================
+        // 4. Natural Tab Browsing Full-screen Ad
         @JavascriptInterface
         public void showAppLovinInterstitial() {
-            runOnUiThread(() -> {
-                if (appLovinInterstitial != null) {
-                    appLovinInterstitial.show();
+            showStartIoInterstitial();
+        }
+
+        @JavascriptInterface
+        public void showInterstitialAd() {
+            showStartIoInterstitial();
+        }
+    }
+
+    private void playStartIoRewardedAd(String targetType) {
+        currentRewardTarget = targetType;
+        runOnUiThread(() -> {
+            if (startAppRewardedAd == null) {
+                startAppRewardedAd = new StartAppAd(MainActivity.this);
+            }
+
+            startAppRewardedAd.setVideoListener(new VideoListener() {
+                @Override
+                public void onVideoCompleted() {
+                    // Ad video complete hone par web app me coins credit karna
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (webView != null) {
+                            webView.evaluateJavascript("window.onNativeAdRewarded('" + currentRewardTarget + "');", null);
+                        }
+                    });
                 }
             });
-        }
+
+            boolean displayed = startAppRewardedAd.showAd(new AdDisplayListener() {
+                @Override public void adHidden(Ad ad) {
+                    preloadStartIoAds();
+                }
+                @Override public void adDisplayed(Ad ad) {}
+                @Override public void adClicked(Ad ad) {}
+                @Override public void adNotDisplayed(Ad ad) {
+                    Toast.makeText(MainActivity.this, "Ad is buffering... Try again in 5s.", Toast.LENGTH_SHORT).show();
+                    preloadStartIoAds();
+                }
+            });
+
+            if (!displayed) {
+                startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
+                Toast.makeText(MainActivity.this, "Loading ad, tap again in 5s.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showStartIoInterstitial() {
+        runOnUiThread(() -> {
+            if (startAppInterstitialAd == null) {
+                startAppInterstitialAd = new StartAppAd(MainActivity.this);
+            }
+
+            boolean displayed = startAppInterstitialAd.showAd(new AdDisplayListener() {
+                @Override public void adHidden(Ad ad) {
+                    preloadStartIoAds();
+                }
+                @Override public void adDisplayed(Ad ad) {}
+                @Override public void adClicked(Ad ad) {}
+                @Override public void adNotDisplayed(Ad ad) {
+                    preloadStartIoAds();
+                }
+            });
+
+            if (!displayed) {
+                startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
+            }
+        });
     }
 
     @Override
