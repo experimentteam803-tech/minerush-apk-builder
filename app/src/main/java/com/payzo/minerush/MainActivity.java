@@ -1,4 +1,4 @@
-package com.payzo.minerush;
+package com.payzo.mine;
 
 import android.annotation.SuppressLint;
 import android.app.DownloadManager;
