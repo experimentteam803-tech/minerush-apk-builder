@@ -46,5 +46,5 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
     // Start.io Official SDK (Real Ads without store requirement)
-    implementation 'com.statapp:inapp-sdk:5.0.2'
+    implementation 'com.startapp:inapp-sdk:5.0.2'
 }
