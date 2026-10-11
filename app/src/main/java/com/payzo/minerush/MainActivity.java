@@ -23,29 +23,39 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-// Start.io Official SDK Imports
-import com.startapp.sdk.adsbase.Ad;
-import com.startapp.sdk.adsbase.StartAppAd;
-import com.startapp.sdk.adsbase.StartAppSDK;
-import com.startapp.sdk.adsbase.adlisteners.AdDisplayListener;
-import com.startapp.sdk.adsbase.adlisteners.AdEventListener;
-import com.startapp.sdk.adsbase.adlisteners.VideoListener;
+// Google AdMob Imports
+import com.google.android.gms.ads.AdError;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.LoadAdError;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+import com.google.android.gms.ads.rewarded.RewardedAd;
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd;
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
 
-    // Aapki Start.io App ID
-    private static final String STARTIO_APP_ID = "209581916";
+    // =========================================================================
+    // 🎯 GOOGLE ADMOB OFFICIAL TEST AD UNIT IDs
+    // =========================================================================
+    // 1. Mining, Core Upgrade, Currency Swap (Rewarded Interstitial)
+    private static final String ADMOB_TEST_REWARDED_INTERSTITIAL = "ca-app-pub-3940256099942544/5354046379";
+    // 2. Ad Tasks & 7-Day Claim (Rewarded Video)
+    private static final String ADMOB_TEST_REWARDED_VIDEO = "ca-app-pub-3940256099942544/5224354917";
+    // 3. Tab Switching (Interstitial Ad)
+    private static final String ADMOB_TEST_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712";
 
-    private StartAppAd startAppRewardedAd;
-    private StartAppAd startAppInterstitialAd;
-    private String currentRewardTarget = "mining";
-
-    // 🛡️ ANTI-DOUBLE REWARD LOCK
-    private boolean isRewardAlreadyDelivered = false;
+    private RewardedInterstitialAd admobRewardedInterstitial;
+    private RewardedAd admobRewardedVideo;
+    private InterstitialAd admobInterstitial;
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
@@ -54,19 +64,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // 🚫 1. KILL PRIVACY POPUP: Pass true so Start.io NEVER prompts again
-        StartAppAd.disableSplash();
-        StartAppSDK.init(this, STARTIO_APP_ID, false);
-        StartAppSDK.enableReturnAds(false);
-        StartAppSDK.setUserConsent(this, "pas", System.currentTimeMillis(), true);
-
         setContentView(R.layout.activity_main);
 
-        startAppRewardedAd = new StartAppAd(this);
-        startAppInterstitialAd = new StartAppAd(this);
-
-        preloadStartIoAds();
+        // 1. Initialize Google Mobile Ads Engine
+        MobileAds.initialize(this, initializationStatus -> {
+            loadRewardedInterstitial();
+            loadRewardedVideo();
+            loadInterstitial();
+        });
 
         // 2. Setup WebView
         webView = findViewById(R.id.webview);
@@ -83,7 +88,6 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 3. SMART EXTERNAL REDIRECT TO CHROME & PLAY STORE
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -99,12 +103,10 @@ public class MainActivity extends AppCompatActivity {
             private boolean handleUrlRedirect(String url) {
                 if (url == null) return false;
 
-                // Agar MineRush app ka internal URL hai, toh WebView me chalne do
                 if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
                     return false;
                 }
 
-                // Saare external links (Telegram, Tasks, Play Store, Websites) Chrome me open karo
                 try {
                     Intent intent;
                     if (url.startsWith("market://") || url.startsWith("intent://")) {
@@ -144,13 +146,55 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    private void preloadStartIoAds() {
-        if (startAppRewardedAd != null) {
-            startAppRewardedAd.loadAd(StartAppAd.AdMode.REWARDED_VIDEO);
-        }
-        if (startAppInterstitialAd != null) {
-            startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
-        }
+    // =========================================================================
+    // 📥 ADMOB PRELOAD ENGINES
+    // =========================================================================
+    private void loadRewardedInterstitial() {
+        AdRequest adRequest = new AdRequest.Builder().build();
+        RewardedInterstitialAd.load(this, ADMOB_TEST_REWARDED_INTERSTITIAL, adRequest,
+                new RewardedInterstitialAdLoadCallback() {
+                    @Override
+                    public void onAdLoaded(@NonNull RewardedInterstitialAd ad) {
+                        admobRewardedInterstitial = ad;
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                        admobRewardedInterstitial = null;
+                    }
+                });
+    }
+
+    private void loadRewardedVideo() {
+        AdRequest adRequest = new AdRequest.Builder().build();
+        RewardedAd.load(this, ADMOB_TEST_REWARDED_VIDEO, adRequest,
+                new RewardedAdLoadCallback() {
+                    @Override
+                    public void onAdLoaded(@NonNull RewardedAd ad) {
+                        admobRewardedVideo = ad;
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                        admobRewardedVideo = null;
+                    }
+                });
+    }
+
+    private void loadInterstitial() {
+        AdRequest adRequest = new AdRequest.Builder().build();
+        InterstitialAd.load(this, ADMOB_TEST_INTERSTITIAL, adRequest,
+                new InterstitialAdLoadCallback() {
+                    @Override
+                    public void onAdLoaded(@NonNull InterstitialAd ad) {
+                        admobInterstitial = ad;
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                        admobInterstitial = null;
+                    }
+                });
     }
 
     // High-Tech Offline Screen
@@ -169,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
                 "</style></head><body>" +
                 "<div class='radar-ring'>📡</div>" +
                 "<h2>Connection <span>Lost</span></h2>" +
-                "<p>Please check your mobile data or Wi-Fi network to resume cloud mining.</p>" +
+                "<p>Please check your mobile data or Wi-Fi network to resume simulation.</p>" +
                 "<button class='btn-retry' id='retryBtn' onclick='handleRetry()'>⚡ Retry Connection</button>" +
                 "<script>" +
                 "function handleRetry() {" +
@@ -197,7 +241,6 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
     public class WebAppInterface {
 
-        // In-App Background APK Download
         @JavascriptInterface
         public void downloadAndInstallApk(String downloadUrl) {
             runOnUiThread(() -> {
@@ -249,148 +292,125 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 1. REWARDED ADS (Mining, Upgrade, Swap)
+        // 1. REWARDED INTERSTITIAL (Mining, Upgrade, Swap)
         @JavascriptInterface
         public void showRewardedInterstitialAd(String targetType) {
-            playSmartRewardedAd(targetType != null ? targetType : "mining");
+            showAdMobRewardedInterstitialAd(targetType != null ? targetType : "mining");
         }
 
-        // 2. REWARDED ADS (Task 1)
+        // 2. REWARDED VIDEO (Task 1, Task 2, Daily Claim)
         @JavascriptInterface
         public void showRewardedAd() {
-            playSmartRewardedAd("admob_task1");
+            showAdMobRewardedVideoAd("task_1");
         }
 
         @JavascriptInterface
         public void showRewardedAd(String targetType) {
-            playSmartRewardedAd(targetType != null ? targetType : "mining");
+            if ("mining".equals(targetType) || "upgrade".equals(targetType) || "swap".equals(targetType)) {
+                showAdMobRewardedInterstitialAd(targetType);
+            } else {
+                showAdMobRewardedVideoAd(targetType);
+            }
         }
 
-        // 3. REWARDED ADS (Task 2 & 7-Day Claim)
         @JavascriptInterface
         public void showAppLovinRewarded(String targetType) {
-            playSmartRewardedAd(targetType != null ? targetType : "task_2");
+            showAdMobRewardedVideoAd(targetType != null ? targetType : "daily_claim");
         }
 
-        // 4. AUTO INTERSTITIAL
-        @JavascriptInterface
-        public void showAppLovinInterstitial() {
-            showStartIoInterstitial();
-        }
-
+        // 3. AUTO INTERSTITIAL (Natural Tab Browsing)
         @JavascriptInterface
         public void showInterstitialAd() {
-            showStartIoInterstitial();
+            showAdMobInterstitial();
+        }
+
+        @JavascriptInterface
+        public void showAppLovinInterstitial() {
+            showAdMobInterstitial();
         }
     }
 
     // =========================================================================
-    // ⚡ SMART SINGLE-REWARD ENGINE
+    // ⚡ ADMOB DISPLAY HANDLERS
     // =========================================================================
-    private void playSmartRewardedAd(final String targetType) {
-        currentRewardTarget = targetType;
-        isRewardAlreadyDelivered = false;
-
+    private void showAdMobRewardedInterstitialAd(String targetType) {
         runOnUiThread(() -> {
-            if (startAppRewardedAd == null) {
-                startAppRewardedAd = new StartAppAd(MainActivity.this);
-            }
-
-            startAppRewardedAd.setVideoListener(new VideoListener() {
-                @Override
-                public void onVideoCompleted() {
-                    deliverSingleReward(currentRewardTarget);
-                }
-            });
-
-            boolean displayed = startAppRewardedAd.showAd(new AdDisplayListener() {
-                @Override public void adHidden(Ad ad) {
-                    deliverSingleReward(currentRewardTarget);
-                    preloadStartIoAds();
-                }
-                @Override public void adDisplayed(Ad ad) {}
-                @Override public void adClicked(Ad ad) {}
-                @Override public void adNotDisplayed(Ad ad) {
-                    showFallbackInterstitialReward(currentRewardTarget);
-                }
-            });
-
-            if (!displayed) {
-                showFallbackInterstitialReward(currentRewardTarget);
-            }
-        });
-    }
-
-    private void showFallbackInterstitialReward(final String targetType) {
-        if (startAppInterstitialAd == null) {
-            startAppInterstitialAd = new StartAppAd(MainActivity.this);
-        }
-
-        boolean displayed = startAppInterstitialAd.showAd(new AdDisplayListener() {
-            @Override
-            public void adHidden(Ad ad) {
-                deliverSingleReward(targetType);
-                preloadStartIoAds();
-            }
-            @Override public void adDisplayed(Ad ad) {}
-            @Override public void adClicked(Ad ad) {}
-            @Override public void adNotDisplayed(Ad ad) {
-                startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC, new AdEventListener() {
+            if (admobRewardedInterstitial != null) {
+                admobRewardedInterstitial.setFullScreenContentCallback(new FullScreenContentCallback() {
                     @Override
-                    public void onReceiveAd(Ad ad) {
-                        startAppInterstitialAd.showAd(new AdDisplayListener() {
-                            @Override public void adHidden(Ad ad) {
-                                deliverSingleReward(targetType);
-                                preloadStartIoAds();
-                            }
-                            @Override public void adDisplayed(Ad ad) {}
-                            @Override public void adClicked(Ad ad) {}
-                            @Override public void adNotDisplayed(Ad ad) {
-                                deliverSingleReward(targetType);
-                            }
-                        });
+                    public void onAdDismissedFullScreenContent() {
+                        admobRewardedInterstitial = null;
+                        loadRewardedInterstitial();
                     }
 
                     @Override
-                    public void onFailedToReceiveAd(Ad ad) {
-                        Toast.makeText(MainActivity.this, "Network busy. Reward granted!", Toast.LENGTH_SHORT).show();
-                        deliverSingleReward(targetType);
+                    public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
+                        admobRewardedInterstitial = null;
+                        loadRewardedInterstitial();
                     }
                 });
+
+                admobRewardedInterstitial.show(MainActivity.this, rewardItem -> notifyWebReward(targetType));
+            } else {
+                Toast.makeText(MainActivity.this, "AdMob video buffering... Tap again in 3s.", Toast.LENGTH_SHORT).show();
+                loadRewardedInterstitial();
             }
         });
-
-        if (!displayed) {
-            preloadStartIoAds();
-        }
     }
 
-    private synchronized void deliverSingleReward(String tag) {
-        if (isRewardAlreadyDelivered) return;
-        isRewardAlreadyDelivered = true;
+    private void showAdMobRewardedVideoAd(String targetType) {
+        runOnUiThread(() -> {
+            if (admobRewardedVideo != null) {
+                admobRewardedVideo.setFullScreenContentCallback(new FullScreenContentCallback() {
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        admobRewardedVideo = null;
+                        loadRewardedVideo();
+                    }
 
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
+                        admobRewardedVideo = null;
+                        loadRewardedVideo();
+                    }
+                });
+
+                admobRewardedVideo.show(MainActivity.this, rewardItem -> notifyWebReward(targetType));
+            } else {
+                Toast.makeText(MainActivity.this, "AdMob reward loading... Tap again in 3s.", Toast.LENGTH_SHORT).show();
+                loadRewardedVideo();
+            }
+        });
+    }
+
+    private void showAdMobInterstitial() {
+        runOnUiThread(() -> {
+            if (admobInterstitial != null) {
+                admobInterstitial.setFullScreenContentCallback(new FullScreenContentCallback() {
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        admobInterstitial = null;
+                        loadInterstitial();
+                    }
+
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
+                        admobInterstitial = null;
+                        loadInterstitial();
+                    }
+                });
+
+                admobInterstitial.show(MainActivity.this);
+            } else {
+                loadInterstitial();
+            }
+        });
+    }
+
+    private void notifyWebReward(String tag) {
         new Handler(Looper.getMainLooper()).post(() -> {
             if (webView != null) {
                 webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
-            }
-        });
-    }
-
-    private void showStartIoInterstitial() {
-        runOnUiThread(() -> {
-            if (startAppInterstitialAd == null) {
-                startAppInterstitialAd = new StartAppAd(MainActivity.this);
-            }
-
-            boolean displayed = startAppInterstitialAd.showAd(new AdDisplayListener() {
-                @Override public void adHidden(Ad ad) { preloadStartIoAds(); }
-                @Override public void adDisplayed(Ad ad) {}
-                @Override public void adClicked(Ad ad) {}
-                @Override public void adNotDisplayed(Ad ad) { preloadStartIoAds(); }
-            });
-
-            if (!displayed) {
-                startAppInterstitialAd.loadAd(StartAppAd.AdMode.AUTOMATIC);
             }
         });
     }
