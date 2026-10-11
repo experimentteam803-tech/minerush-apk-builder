@@ -46,16 +46,23 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
     // 🎯 GOOGLE ADMOB OFFICIAL TEST AD UNIT IDs
     // =========================================================================
-    // 1. Mining, Core Upgrade, Currency Swap (Rewarded Interstitial)
     private static final String ADMOB_TEST_REWARDED_INTERSTITIAL = "ca-app-pub-3940256099942544/5354046379";
-    // 2. Ad Tasks & 7-Day Claim (Rewarded Video)
     private static final String ADMOB_TEST_REWARDED_VIDEO = "ca-app-pub-3940256099942544/5224354917";
-    // 3. Tab Switching (Interstitial Ad)
     private static final String ADMOB_TEST_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712";
 
     private RewardedInterstitialAd admobRewardedInterstitial;
     private RewardedAd admobRewardedVideo;
     private InterstitialAd admobInterstitial;
+
+    // =========================================================================
+    // ⏱️ FREQUENCY CAPPING (USER EXPERIENCE & REVIEWER SAFETY)
+    // =========================================================================
+    // Ek ad aane ke baad kam se kam 2 minute (120,000 ms) ka gap
+    private static final long INTERSTITIAL_COOLDOWN_MS = 120000;
+    // Kam se kam 4 baar tab click hone par hi ad check hoga
+    private static final int CLICKS_REQUIRED = 4;
+    private long lastInterstitialShowTime = 0;
+    private int tabClickCounter = 0;
 
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
@@ -65,6 +72,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // App start hone par initial 2 minute tak koi interstitial ad nahi aayega
+        lastInterstitialShowTime = System.currentTimeMillis();
 
         // 1. Initialize Google Mobile Ads Engine
         MobileAds.initialize(this, initializationStatus -> {
@@ -318,20 +328,59 @@ public class MainActivity extends AppCompatActivity {
             showAdMobRewardedVideoAd(targetType != null ? targetType : "daily_claim");
         }
 
-        // 3. AUTO INTERSTITIAL (Natural Tab Browsing)
+        // 3. AUTO INTERSTITIAL (Controlled with 2-Minute Cooldown & 4 Clicks)
         @JavascriptInterface
         public void showInterstitialAd() {
-            showAdMobInterstitial();
+            showSmartControlledInterstitial();
         }
 
         @JavascriptInterface
         public void showAppLovinInterstitial() {
-            showAdMobInterstitial();
+            showSmartControlledInterstitial();
         }
     }
 
     // =========================================================================
-    // ⚡ ADMOB DISPLAY HANDLERS
+    // ⚡ CONTROLLED INTERSTITIAL AD (USER & REVIEWER FRIENDLY)
+    // =========================================================================
+    private void showSmartControlledInterstitial() {
+        tabClickCounter++;
+        long currentTime = System.currentTimeMillis();
+
+        // Check: Kya 4 clicks hue hain AUR kam se kam 2 minutes beet chuke hain?
+        if (tabClickCounter < CLICKS_REQUIRED || (currentTime - lastInterstitialShowTime) < INTERSTITIAL_COOLDOWN_MS) {
+            // Agar bohot jaldi hai, toh ad mat dikhao—user ko aaram se app chalane do!
+            return;
+        }
+
+        runOnUiThread(() -> {
+            if (admobInterstitial != null) {
+                admobInterstitial.setFullScreenContentCallback(new FullScreenContentCallback() {
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        admobInterstitial = null;
+                        loadInterstitial();
+                    }
+
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
+                        admobInterstitial = null;
+                        loadInterstitial();
+                    }
+                });
+
+                admobInterstitial.show(MainActivity.this);
+                // Timer reset karein
+                lastInterstitialShowTime = System.currentTimeMillis();
+                tabClickCounter = 0;
+            } else {
+                loadInterstitial();
+            }
+        });
+    }
+
+    // =========================================================================
+    // ⚡ REWARDED ADS HANDLERS (ALWAYS ON-DEMAND WHEN USER CLICKS)
     // =========================================================================
     private void showAdMobRewardedInterstitialAd(String targetType) {
         runOnUiThread(() -> {
@@ -352,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
 
                 admobRewardedInterstitial.show(MainActivity.this, rewardItem -> notifyWebReward(targetType));
             } else {
-                Toast.makeText(MainActivity.this, "AdMob video buffering... Tap again in 3s.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Sponsor video buffering... Tap again in 3s.", Toast.LENGTH_SHORT).show();
                 loadRewardedInterstitial();
             }
         });
@@ -377,32 +426,8 @@ public class MainActivity extends AppCompatActivity {
 
                 admobRewardedVideo.show(MainActivity.this, rewardItem -> notifyWebReward(targetType));
             } else {
-                Toast.makeText(MainActivity.this, "AdMob reward loading... Tap again in 3s.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Sponsor reward buffering... Tap again in 3s.", Toast.LENGTH_SHORT).show();
                 loadRewardedVideo();
-            }
-        });
-    }
-
-    private void showAdMobInterstitial() {
-        runOnUiThread(() -> {
-            if (admobInterstitial != null) {
-                admobInterstitial.setFullScreenContentCallback(new FullScreenContentCallback() {
-                    @Override
-                    public void onAdDismissedFullScreenContent() {
-                        admobInterstitial = null;
-                        loadInterstitial();
-                    }
-
-                    @Override
-                    public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
-                        admobInterstitial = null;
-                        loadInterstitial();
-                    }
-                });
-
-                admobInterstitial.show(MainActivity.this);
-            } else {
-                loadInterstitial();
             }
         });
     }
