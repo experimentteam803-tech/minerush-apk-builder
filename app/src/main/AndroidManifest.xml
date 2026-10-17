@@ -20,6 +20,8 @@
             <data android:scheme="http" />
         </intent>
     </queries>
+    <!-- 🚀 App ke andar hi naya update install karne ki permission -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
