@@ -5,6 +5,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# 🚀 GITHUB ACTIONS KO FILE COMMIT KARNE KI PERMISSION
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,6 +16,9 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -34,6 +41,7 @@ jobs:
       - name: Restore or Generate Keystore
         run: |
           if [ ! -f app/release.keystore ]; then
+            echo "Generating permanent keystore for the first time..."
             keytool -genkeypair -v \
               -keystore app/release.keystore \
               -storepass "minerush@2026" \
@@ -43,6 +51,8 @@ jobs:
               -keysize 2048 \
               -validity 10000 \
               -dname "CN=MineRush, OU=PayZo, O=PayZo, L=Guwahati, ST=Assam, C=IN"
+          else
+            echo "Permanent keystore found in repo! Reusing the exact same signature."
           fi
 
       - name: Build Android Release APK
@@ -58,6 +68,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/release.keystore
-          git commit -m "Save permanent release keystore" || echo "Keystore already committed"
-          git push || echo "Already up to date"
+          git add -f app/release.keystore
+          git commit -m "Save permanent release keystore [skip ci]" || echo "Keystore already committed"
+          git push origin HEAD:${{ github.ref_name }} || echo "Already up to date"
