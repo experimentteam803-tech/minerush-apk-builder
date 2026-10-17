@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setSupportMultipleWindows(true);
+        settings.setSupportMultipleWindows(false);
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
@@ -230,6 +230,21 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void showInterstitialAd() {}
+    }   
+
+    // 🌐 DIRECT LINK KO GOOGLE CHROME ME BAHAR BHEJNE KA CODE
+    @JavascriptInterface
+    public void openBrowser(final String url) {
+        if (url == null || url.isEmpty()) return;
+        runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     @Override
