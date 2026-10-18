@@ -24,7 +24,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-// 🎮 UNITY ADS IMPORTS
+// 🎮 OFFICIAL UNITY ADS SDK IMPORTS
 import com.unity3d.ads.IUnityAdsInitializationListener;
 import com.unity3d.ads.IUnityAdsLoadListener;
 import com.unity3d.ads.IUnityAdsShowListener;
@@ -37,14 +37,16 @@ public class MainActivity extends AppCompatActivity {
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
 
-    // 🎮 UNITY ADS CONFIGURATION (From your Unity Dashboard)
+    // 🎮 UNITY ADS CREDENTIALS (From your Unity Dashboard Screenshot)
     private static final String UNITY_GAME_ID = "800387446";
     private static final String REWARDED_PLACEMENT = "Rewarded_Android";
-    // ⚠️ Note: Agar abhi test ads dekhni hain toh testMode = true rakhein, Live ads ke liye false karein
-    private static final boolean TEST_MODE = false;
+
+    // 🚀 TEST_MODE = true zaroori hai testing ke liye (Play Store publish hone tak)
+    private static final boolean TEST_MODE = true;
 
     private boolean isAdLoaded = false;
     private boolean isAdLoading = false;
+    private String pendingShowTag = null; // Auto-play trigger
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -52,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize Unity Ads SDK
+        // 1. Initialize Unity Ads early
         initUnityAds();
 
         // 2. Setup WebView
@@ -70,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 3. External Browser Redirection Handler
+        // 3. Intent Redirection Handler
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -130,25 +132,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // 🎮 UNITY ADS ENGINE (INITIALIZATION, PRELOAD & SHOW)
+    // 🎮 UNITY ADS CORE ENGINE (INITIALIZATION, AUTO-LOAD, AUTO-SHOW)
     // =========================================================================
     private void initUnityAds() {
         UnityAds.initialize(getApplicationContext(), UNITY_GAME_ID, TEST_MODE, new IUnityAdsInitializationListener() {
             @Override
             public void onInitializationComplete() {
                 Log.d("UnityAds", "Unity Ads Initialized Successfully!");
+                // App start hote hi pehla ad background me preload karein
                 loadRewardedAd();
             }
 
             @Override
             public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
-                Log.e("UnityAds", "Unity Ads Init Failed: " + message);
+                Log.e("UnityAds", "Unity Ads Init Failed: " + error + " - " + message);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Unity Init Error: " + message, Toast.LENGTH_LONG).show());
             }
         });
     }
 
     private void loadRewardedAd() {
-        if (isAdLoading) return;
+        if (isAdLoaded || isAdLoading) return;
         isAdLoading = true;
 
         UnityAds.load(REWARDED_PLACEMENT, new IUnityAdsLoadListener() {
@@ -156,14 +160,71 @@ public class MainActivity extends AppCompatActivity {
             public void onUnityAdsAdLoaded(String placementId) {
                 isAdLoaded = true;
                 isAdLoading = false;
-                Log.d("UnityAds", "Rewarded Ad Loaded & Ready: " + placementId);
+                Log.d("UnityAds", "Rewarded Ad Loaded Successfully: " + placementId);
+
+                // 🚀 Agar user ne button daba diya tha jab ad load ho raha tha, toh load hote hi ad play karo!
+                if (pendingShowTag != null) {
+                    String tag = pendingShowTag;
+                    pendingShowTag = null;
+                    runOnUiThread(() -> showLoadedAd(tag));
+                }
             }
 
             @Override
             public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {
                 isAdLoaded = false;
                 isAdLoading = false;
-                Log.e("UnityAds", "Rewarded Ad Load Failed: " + message);
+                Log.e("UnityAds", "Rewarded Ad Load Failed: " + error + " - " + message);
+
+                if (pendingShowTag != null) {
+                    pendingShowTag = null;
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ad Load Failed: " + message, Toast.LENGTH_LONG).show());
+                }
+            }
+        });
+    }
+
+    private void showLoadedAd(final String tag) {
+        if (!isAdLoaded) {
+            pendingShowTag = tag;
+            Toast.makeText(MainActivity.this, "Loading Video Ad... Opening soon", Toast.LENGTH_SHORT).show();
+            loadRewardedAd();
+            return;
+        }
+
+        UnityAds.show(MainActivity.this, REWARDED_PLACEMENT, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
+            @Override
+            public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
+                isAdLoaded = false;
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ad Show Failed: " + message, Toast.LENGTH_SHORT).show());
+                loadRewardedAd(); // Agla ad reload karo
+            }
+
+            @Override
+            public void onUnityAdsShowStart(String placementId) {
+                Log.d("UnityAds", "Ad started: " + placementId);
+            }
+
+            @Override
+            public void onUnityAdsShowClick(String placementId) {
+                Log.d("UnityAds", "Ad clicked: " + placementId);
+            }
+
+            @Override
+            public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
+                isAdLoaded = false;
+                loadRewardedAd(); // Agla ad pehle se background me preload karo
+
+                if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                    // 🪙 USER WATCHED FULL AD! REWARD IN WEB APP
+                    runOnUiThread(() -> {
+                        if (webView != null) {
+                            webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
+                        }
+                    });
+                } else {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ad skipped! No reward given.", Toast.LENGTH_SHORT).show());
+                }
             }
         });
     }
@@ -212,45 +273,20 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
     public class WebAppInterface {
 
-        // 🎮 SHOW UNITY REWARDED VIDEO AD (MINING, DAILY CLAIM, SWAP)
+        // 🎮 SHOW REWARDED VIDEO AD (MINING, DAILY CLAIM, SWAP)
         @JavascriptInterface
         public void showRewardedAd(final String tag) {
             runOnUiThread(() -> {
                 if (isAdLoaded) {
-                    UnityAds.show(MainActivity.this, REWARDED_PLACEMENT, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
-                        @Override
-                        public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
-                            Toast.makeText(MainActivity.this, "Ad failed: " + message, Toast.LENGTH_SHORT).show();
-                            isAdLoaded = false;
-                            loadRewardedAd();
-                        }
-
-                        @Override
-                        public void onUnityAdsShowStart(String placementId) {
-                            Log.d("UnityAds", "Ad started: " + placementId);
-                        }
-
-                        @Override
-                        public void onUnityAdsShowClick(String placementId) {
-                            Log.d("UnityAds", "Ad clicked: " + placementId);
-                        }
-
-                        @Override
-                        public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
-                            isAdLoaded = false;
-                            loadRewardedAd(); // Load next ad immediately
-
-                            if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
-                                // 🪙 REWARD USER IN WEB APP
-                                webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
-                            } else {
-                                Toast.makeText(MainActivity.this, "Ad skipped! No reward.", Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    });
+                    showLoadedAd(tag);
                 } else {
-                    Toast.makeText(MainActivity.this, "Loading Video Ad, please wait 2 seconds...", Toast.LENGTH_SHORT).show();
-                    loadRewardedAd();
+                    pendingShowTag = tag;
+                    Toast.makeText(MainActivity.this, "Loading Video Ad... Please wait a moment.", Toast.LENGTH_SHORT).show();
+                    if (!UnityAds.isInitialized()) {
+                        initUnityAds();
+                    } else {
+                        loadRewardedAd();
+                    }
                 }
             });
         }
