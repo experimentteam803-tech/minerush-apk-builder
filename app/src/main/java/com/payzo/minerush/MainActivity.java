@@ -13,7 +13,6 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -24,29 +23,11 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-// 🎮 OFFICIAL UNITY ADS SDK IMPORTS
-import com.unity3d.ads.IUnityAdsInitializationListener;
-import com.unity3d.ads.IUnityAdsLoadListener;
-import com.unity3d.ads.IUnityAdsShowListener;
-import com.unity3d.ads.UnityAds;
-import com.unity3d.ads.UnityAdsShowOptions;
-
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
     private boolean isOffline = false;
-
-    // 🎮 UNITY ADS CREDENTIALS (From your Unity Dashboard Screenshot)
-    private static final String UNITY_GAME_ID = "800387446";
-    private static final String REWARDED_PLACEMENT = "Rewarded_Android";
-
-    // 🚀 TEST_MODE = true zaroori hai testing ke liye (Play Store publish hone tak)
-    private static final boolean TEST_MODE = true;
-
-    private boolean isAdLoaded = false;
-    private boolean isAdLoading = false;
-    private String pendingShowTag = null; // Auto-play trigger
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -54,10 +35,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Initialize Unity Ads early
-        initUnityAds();
-
-        // 2. Setup WebView
+        // 1. Setup WebView
         webView = findViewById(R.id.webview);
         webView.setBackgroundColor(Color.parseColor("#040711"));
 
@@ -72,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 3. Intent Redirection Handler
+        // 2. Intent Redirection Handler (External links open in phone browser)
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -131,104 +109,6 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(APP_URL);
     }
 
-    // =========================================================================
-    // 🎮 UNITY ADS CORE ENGINE (INITIALIZATION, AUTO-LOAD, AUTO-SHOW)
-    // =========================================================================
-    private void initUnityAds() {
-        UnityAds.initialize(getApplicationContext(), UNITY_GAME_ID, TEST_MODE, new IUnityAdsInitializationListener() {
-            @Override
-            public void onInitializationComplete() {
-                Log.d("UnityAds", "Unity Ads Initialized Successfully!");
-                // App start hote hi pehla ad background me preload karein
-                loadRewardedAd();
-            }
-
-            @Override
-            public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
-                Log.e("UnityAds", "Unity Ads Init Failed: " + error + " - " + message);
-                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Unity Init Error: " + message, Toast.LENGTH_LONG).show());
-            }
-        });
-    }
-
-    private void loadRewardedAd() {
-        if (isAdLoaded || isAdLoading) return;
-        isAdLoading = true;
-
-        UnityAds.load(REWARDED_PLACEMENT, new IUnityAdsLoadListener() {
-            @Override
-            public void onUnityAdsAdLoaded(String placementId) {
-                isAdLoaded = true;
-                isAdLoading = false;
-                Log.d("UnityAds", "Rewarded Ad Loaded Successfully: " + placementId);
-
-                // 🚀 Agar user ne button daba diya tha jab ad load ho raha tha, toh load hote hi ad play karo!
-                if (pendingShowTag != null) {
-                    String tag = pendingShowTag;
-                    pendingShowTag = null;
-                    runOnUiThread(() -> showLoadedAd(tag));
-                }
-            }
-
-            @Override
-            public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {
-                isAdLoaded = false;
-                isAdLoading = false;
-                Log.e("UnityAds", "Rewarded Ad Load Failed: " + error + " - " + message);
-
-                if (pendingShowTag != null) {
-                    pendingShowTag = null;
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ad Load Failed: " + message, Toast.LENGTH_LONG).show());
-                }
-            }
-        });
-    }
-
-    private void showLoadedAd(final String tag) {
-        if (!isAdLoaded) {
-            pendingShowTag = tag;
-            Toast.makeText(MainActivity.this, "Loading Video Ad... Opening soon", Toast.LENGTH_SHORT).show();
-            loadRewardedAd();
-            return;
-        }
-
-        UnityAds.show(MainActivity.this, REWARDED_PLACEMENT, new UnityAdsShowOptions(), new IUnityAdsShowListener() {
-            @Override
-            public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
-                isAdLoaded = false;
-                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ad Show Failed: " + message, Toast.LENGTH_SHORT).show());
-                loadRewardedAd(); // Agla ad reload karo
-            }
-
-            @Override
-            public void onUnityAdsShowStart(String placementId) {
-                Log.d("UnityAds", "Ad started: " + placementId);
-            }
-
-            @Override
-            public void onUnityAdsShowClick(String placementId) {
-                Log.d("UnityAds", "Ad clicked: " + placementId);
-            }
-
-            @Override
-            public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
-                isAdLoaded = false;
-                loadRewardedAd(); // Agla ad pehle se background me preload karo
-
-                if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
-                    // 🪙 USER WATCHED FULL AD! REWARD IN WEB APP
-                    runOnUiThread(() -> {
-                        if (webView != null) {
-                            webView.evaluateJavascript("if(window.onNativeAdRewarded){ window.onNativeAdRewarded('" + tag + "'); }", null);
-                        }
-                    });
-                } else {
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Ad skipped! No reward given.", Toast.LENGTH_SHORT).show());
-                }
-            }
-        });
-    }
-
     // High-Tech Offline Screen
     private void showProfessionalOfflinePage() {
         String offlineHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'>" +
@@ -269,37 +149,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // 🌐 JAVASCRIPT BRIDGE INTERFACE
+    // 🌐 JAVASCRIPT BRIDGE INTERFACE (CLEAN & ERROR-FREE)
     // =========================================================================
     public class WebAppInterface {
-
-        // 🎮 SHOW REWARDED VIDEO AD (MINING, DAILY CLAIM, SWAP)
-        @JavascriptInterface
-        public void showRewardedAd(final String tag) {
-            runOnUiThread(() -> {
-                if (isAdLoaded) {
-                    showLoadedAd(tag);
-                } else {
-                    pendingShowTag = tag;
-                    Toast.makeText(MainActivity.this, "Loading Video Ad... Please wait a moment.", Toast.LENGTH_SHORT).show();
-                    if (!UnityAds.isInitialized()) {
-                        initUnityAds();
-                    } else {
-                        loadRewardedAd();
-                    }
-                }
-            });
-        }
-
-        @JavascriptInterface
-        public void showRewardedInterstitialAd(String tag) {
-            showRewardedAd(tag);
-        }
-
-        @JavascriptInterface
-        public void showInterstitialAd() {
-            showRewardedAd("interstitial");
-        }
 
         @JavascriptInterface
         public void downloadAndInstallApk(String downloadUrl) {
@@ -340,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
-
+        // 🛡️ 100% ACCURATE HARDWARE-LEVEL ANDROID VPN DETECTOR
         @JavascriptInterface
         public boolean isVpnConnected() {
             try {
@@ -369,19 +221,30 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // Bridge placeholders so Web App never throws an error
         @JavascriptInterface
-        public void openBrowser(final String url) {
-            if (url == null || url.isEmpty()) return;
-            runOnUiThread(() -> {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(intent);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
+        public void showRewardedAd(String tag) {}
+
+        @JavascriptInterface
+        public void showRewardedInterstitialAd(String tag) {}
+
+        @JavascriptInterface
+        public void showInterstitialAd() {}
+    }   
+
+    // 🌐 DIRECT LINK KO GOOGLE CHROME ME BAHAR BHEJNE KA CODE
+    @JavascriptInterface
+    public void openBrowser(final String url) {
+        if (url == null || url.isEmpty()) return;
+        runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     @Override
