@@ -21,12 +21,17 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import com.onesignal.OneSignal;
+import com.onesignal.debug.LogLevel;
+import com.onesignal.Continue;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private static final String APP_URL = "https://mine-rush-fawn.vercel.app/";
+    private static final String ONESIGNAL_APP_ID = "847091d7-54be-49a5-a24d-0bb2f9b1f7f0";
     private boolean isOffline = false;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -35,7 +40,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Setup WebView
+        // 🔔 1. ONESIGNAL INITIALIZATION & PERMISSION REQUEST
+        OneSignal.getDebug().setLogLevel(LogLevel.VERBOSE);
+        OneSignal.initWithContext(this, ONESIGNAL_APP_ID);
+        OneSignal.getNotifications().requestPermission(true, Continue.with(r -> {}));
+
+        // 2. Setup WebView
         webView = findViewById(R.id.webview);
         webView.setBackgroundColor(Color.parseColor("#040711"));
 
@@ -50,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 2. Intent Redirection Handler (External links open in phone browser)
+        // 3. Intent Redirection Handler (External links open in phone browser)
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -149,9 +159,37 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // 🌐 JAVASCRIPT BRIDGE INTERFACE (CLEAN & ERROR-FREE)
+    // 🌐 JAVASCRIPT BRIDGE INTERFACE
     // =========================================================================
     public class WebAppInterface {
+
+        // 🔔 User ki Firebase UID ko OneSignal se link karna
+        @JavascriptInterface
+        public void setPushUserId(String userId) {
+            if (userId != null && !userId.trim().isEmpty()) {
+                OneSignal.login(userId.trim());
+            }
+        }
+
+        @JavascriptInterface
+        public void logoutPushUser() {
+            OneSignal.logout();
+        }
+
+        // 🌐 Direct link ko Chrome / External browser me open karna
+        @JavascriptInterface
+        public void openBrowser(final String url) {
+            if (url == null || url.isEmpty()) return;
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
 
         @JavascriptInterface
         public void downloadAndInstallApk(String downloadUrl) {
@@ -192,6 +230,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+
         // 🛡️ 100% ACCURATE HARDWARE-LEVEL ANDROID VPN DETECTOR
         @JavascriptInterface
         public boolean isVpnConnected() {
@@ -231,21 +270,6 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void showInterstitialAd() {}
     }   
-
-    // 🌐 DIRECT LINK KO GOOGLE CHROME ME BAHAR BHEJNE KA CODE
-    @JavascriptInterface
-    public void openBrowser(final String url) {
-        if (url == null || url.isEmpty()) return;
-        runOnUiThread(() -> {
-            try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
 
     @Override
     public void onBackPressed() {
