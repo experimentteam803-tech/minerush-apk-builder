@@ -74,31 +74,68 @@ public class MainActivity extends AppCompatActivity {
             }
 
             private boolean handleUrlRedirect(String url) {
-                if (url == null) return false;
+                if (url == null || url.trim().isEmpty()) return false;
 
+                // 1. Agar app ka apna Vercel URL hai toh app me hi load hone do
                 if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
                     return false;
                 }
 
-                try {
-                    Intent intent;
-                    if (url.startsWith("market://") || url.startsWith("intent://")) {
-                        intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-                    } else {
-                        intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                // 2. 🟢 GOOGLE PLAY STORE LINK (Sidhe phone ke Play Store app me redirect karega)
+                if (url.contains("play.google.com/store/apps") || url.startsWith("market://")) {
+                    try {
+                        Intent playIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        playIntent.setPackage("com.android.vending"); // Force Open Google Play Store
+                        playIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(playIntent);
+                        return true;
+                    } catch (Exception e) {
+                        // Agar Play Store app na mile toh external browser me kholein
+                        try {
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(browserIntent);
+                            return true;
+                        } catch (Exception ignored) {}
                     }
+                }
+
+                // 3. Android Intent Links (intent://...)
+                if (url.startsWith("intent://")) {
+                    try {
+                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        if (intent != null) {
+                            try {
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+                                return true;
+                            } catch (Exception ex) {
+                                String fallbackUrl = intent.getStringExtra("browser_fallback_url");
+                                if (fallbackUrl != null) {
+                                    return handleUrlRedirect(fallbackUrl);
+                                }
+                                String pkg = intent.getPackage();
+                                if (pkg != null) {
+                                    Intent marketIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg));
+                                    marketIntent.setPackage("com.android.vending");
+                                    marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(marketIntent);
+                                    return true;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                // 4. Baki saare External Links (Telegram, Chrome, etc.)
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(intent);
                     return true;
                 } catch (Exception e) {
-                    try {
-                        Intent fallback = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(fallback);
-                        return true;
-                    } catch (Exception ignored) {}
+                    return false;
                 }
-                return false;
             }
 
             @Override
@@ -180,15 +217,7 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void openBrowser(final String url) {
             if (url == null || url.isEmpty()) return;
-            runOnUiThread(() -> {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(intent);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
+            runOnUiThread(() -> handleUrlRedirect(url));
         }
 
         @JavascriptInterface
