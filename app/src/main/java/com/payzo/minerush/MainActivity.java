@@ -2,6 +2,7 @@ package com.payzo.minerush;
 
 import android.annotation.SuppressLint;
 import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -73,71 +74,6 @@ public class MainActivity extends AppCompatActivity {
                 return handleUrlRedirect(url);
             }
 
-            private boolean handleUrlRedirect(String url) {
-                if (url == null || url.trim().isEmpty()) return false;
-
-                // 1. Agar app ka apna Vercel URL hai toh app me hi load hone do
-                if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
-                    return false;
-                }
-
-                // 2. 🟢 GOOGLE PLAY STORE LINK (Sidhe phone ke Play Store app me redirect karega)
-                if (url.contains("play.google.com/store/apps") || url.startsWith("market://")) {
-                    try {
-                        Intent playIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        playIntent.setPackage("com.android.vending"); // Force Open Google Play Store
-                        playIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(playIntent);
-                        return true;
-                    } catch (Exception e) {
-                        // Agar Play Store app na mile toh external browser me kholein
-                        try {
-                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(browserIntent);
-                            return true;
-                        } catch (Exception ignored) {}
-                    }
-                }
-
-                // 3. Android Intent Links (intent://...)
-                if (url.startsWith("intent://")) {
-                    try {
-                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-                        if (intent != null) {
-                            try {
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);
-                                return true;
-                            } catch (Exception ex) {
-                                String fallbackUrl = intent.getStringExtra("browser_fallback_url");
-                                if (fallbackUrl != null) {
-                                    return handleUrlRedirect(fallbackUrl);
-                                }
-                                String pkg = intent.getPackage();
-                                if (pkg != null) {
-                                    Intent marketIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg));
-                                    marketIntent.setPackage("com.android.vending");
-                                    marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                    startActivity(marketIntent);
-                                    return true;
-                                }
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-
-                // 4. Baki saare External Links (Telegram, Chrome, etc.)
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(intent);
-                    return true;
-                } catch (Exception e) {
-                    return false;
-                }
-            }
-
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
@@ -154,6 +90,72 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.loadUrl(APP_URL);
+    }
+
+    // 🟢 GLOBAL REDIRECTION HANDLER (PLAY STORE + CHROME + EXTERNAL APPS)
+    public boolean handleUrlRedirect(String url) {
+        if (url == null || url.trim().isEmpty()) return false;
+
+        // 1. Agar app ka apna Vercel URL hai toh app me hi load hone do
+        if (url.startsWith(APP_URL) || url.startsWith("https://mine-rush-fawn.vercel.app")) {
+            return false;
+        }
+
+        // 2. 🟢 GOOGLE PLAY STORE LINK (Direct phone ke Play Store app me redirect karega)
+        if (url.contains("play.google.com/store/apps") || url.startsWith("market://")) {
+            try {
+                Intent playIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                playIntent.setPackage("com.android.vending"); // Force Open Google Play Store
+                playIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(playIntent);
+                return true;
+            } catch (Exception e) {
+                // Agar Play Store app na mile toh external browser me kholein
+                try {
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(browserIntent);
+                    return true;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 3. Android Intent Links (intent://...)
+        if (url.startsWith("intent://")) {
+            try {
+                Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                if (intent != null) {
+                    try {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception ex) {
+                        String fallbackUrl = intent.getStringExtra("browser_fallback_url");
+                        if (fallbackUrl != null) {
+                            return handleUrlRedirect(fallbackUrl);
+                        }
+                        String pkg = intent.getPackage();
+                        if (pkg != null) {
+                            Intent marketIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg));
+                            marketIntent.setPackage("com.android.vending");
+                            marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(marketIntent);
+                            return true;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 4. Baki saare External Links (Telegram, Chrome, UPI, etc.)
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // High-Tech Offline Screen
@@ -213,7 +215,7 @@ public class MainActivity extends AppCompatActivity {
             OneSignal.logout();
         }
 
-        // 🌐 Direct link ko Chrome / External browser me open karna
+        // 🌐 Direct link ko Chrome / Play Store me open karna
         @JavascriptInterface
         public void openBrowser(final String url) {
             if (url == null || url.isEmpty()) return;
