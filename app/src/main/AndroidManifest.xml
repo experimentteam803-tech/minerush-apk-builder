@@ -22,6 +22,19 @@
     </queries>
     <!-- 🚀 App ke andar hi naya update install karne ki permission -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 🛒 Google Play Store & Browser Launch Permission (Android 11+) -->
+    <queries>
+        <package android:name="com.android.vending" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="market" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
 
     <application
         android:allowBackup="true"
